@@ -7,171 +7,105 @@ MAIN_BRIDGE_IP=10.0.0.240/24
 
 source ./functions
 
-testbed() {
-    case $1 in
-	start)
-	    echo "Starting main bridge"
-	    start_bridge $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+start_testbed() {
+    echo "Starting main bridge"
+    start_bridge $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
 
-	    net1 start
-	    net2 start
-	    zoo1 start
-	    zoo2 start
- 	    ;;
+    for i in $MAIN_NS; do
+	eval start_$i
+    done
+}
 
-	stop)
-
-	    net1 stop
-	    net2 stop
-	    zoo1 stop
-	    zoo2 stop
-
-	    echo "Stopping main bridge"
-	    stop_bridge $MAIN_BRIDGE_NAME
-
-	    ;;
-
-	*)
-
-	    echo "Usage: $0 {start|stop}"
-	    ;;
-
-    esac
+stop_testbed() {
+    for i in $MAIN_NS; do
+	eval stop_$i
+    done
     
+    echo "Stopping main bridge"
+    stop_bridge $MAIN_BRIDGE_NAME
 }
 
-net1() {
-
-    NS_NAME=net1
-    MAIN_IFACE_IP=10.0.0.3/24
-
-    VM_BRIDGE1_NAME=$NS_NAME-br1
-    VM_BRIDGE1_IP=172.16.0.240/24
-
-    VM_BRIDGE2_NAME=$NS_NAME-br2
-    VM_BRIDGE2_IP=172.16.1.240/24
-
-    case $1 in
-	start)
-	    start_host $NS_NAME $MAIN_IFACE_IP $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
-
-	    echo "Starting virtual bridge $VM_BRIDGE1_NAME"
-	    start_bridge $VM_BRIDGE1_NAME $VM_BRIDGE1_IP $NS_NAME
-
-	    echo "Starting virtual bridge $VM_BRIDGE2_NAME"
-	    start_bridge $VM_BRIDGE2_NAME $VM_BRIDGE2_IP $NS_NAME
-
-	    start_vm $NS_NAME $NS_NAME.1 172.16.0.101/24 172.16.0.240 $VM_BRIDGE1_NAME
-	    start_vm $NS_NAME $NS_NAME.2 172.16.0.102/24 172.16.0.240 $VM_BRIDGE1_NAME
-	    start_vm $NS_NAME $NS_NAME.3 172.16.0.103/24 172.16.0.240 $VM_BRIDGE1_NAME
-
-	    start_vm $NS_NAME $NS_NAME.4 172.16.1.101/24 172.16.1.240 $VM_BRIDGE2_NAME
-	    start_vm $NS_NAME $NS_NAME.5 172.16.1.102/24 172.16.1.240 $VM_BRIDGE2_NAME
-	    ;;
-
-	stop)
-	    stop_host $NS_NAME $MAIN_BRIDGE_NAME
-
-	    stop_vm $NS_NAME.1
-	    stop_vm $NS_NAME.2
-	    stop_vm $NS_NAME.3
-
-	    stop_vm $NS_NAME.4
-	    stop_vm $NS_NAME.5
-
-	    echo "Stopping virtual bridge $VM_BRIDGE1_NAME"
-	    stop_bridge $VM_BRIDGE1_NAME $NS_NAME
-
-	    echo "Stopping virtual bridge $VM_BRIDGE2_NAME"
-	    stop_bridge $VM_BRIDGE2_NAME $NS_NAME
-
-	    ;;
-	*)
-	    echo "Usage: $0 {start|stop}"
-	    ;;
-    esac
-
-}
-
-net2() {
-    NS_NAME=net2
-    MAIN_IFACE_IP=10.0.0.4/24
+start_net1() {
+    start_host net1 10.0.0.3/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
     
-    VM_BRIDGE1_NAME=$NS_NAME-br1
-    VM_BRIDGE1_IP=172.16.2.240/24
-
-    case $1 in
-	start)
-	    start_host $NS_NAME $MAIN_IFACE_IP $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
-	    
-	    echo "Starting virtual bridge $VM_BRIDGE1_NAME"
-	    start_bridge $VM_BRIDGE1_NAME $VM_BRIDGE1_IP $NS_NAME
-	    
-	    start_vm $NS_NAME $NS_NAME.1 172.16.2.101/24 172.16.0.240 $VM_BRIDGE1_NAME
-	    start_vm $NS_NAME $NS_NAME.2 172.16.2.102/24 172.16.0.240 $VM_BRIDGE1_NAME
-	    ;;
-	
-	stop)
-	    stop_host $NS_NAME $MAIN_BRIDGE_NAME
-	    
-	    stop_vm $NS_NAME.1
-	    stop_vm $NS_NAME.2
-	    
-	    echo "Stopping virtual bridge $VM_BRIDGE1_NAME"
-	    stop_bridge $VM_BRIDGE1_NAME $NS_NAME
-	    
-	    ;;
-	*)
-	    echo "Usage: $0 {start|stop}"
-	    ;;
-    esac
-}
-
-zoo1() {
-    NS_NAME=zoo1
-    MAIN_IFACE_IP=10.0.0.5/24
+    echo "Starting virtual bridge net1-br1"
+    start_bridge net1-br1 172.16.0.240/24 net1
     
-    case $1 in
-	start)
-	    start_host $NS_NAME $MAIN_IFACE_IP $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
-	    ;;
-	
-	stop)
-	    stop_host $NS_NAME $MAIN_BRIDGE_NAME
-	    ;;
-	*)
-	    echo "Usage: $0 {start|stop}"
-	    ;;
-    esac
-}
-
-zoo2() {
-    NS_NAME=zoo2
-    MAIN_IFACE_IP=10.0.0.4/24
+    echo "Starting virtual bridge $VM_BRIDGE2_NAME"
+    start_bridge net1-br2 172.16.1.240/24 net1
     
-    case $1 in
-	start)
-	    start_host $NS_NAME $MAIN_IFACE_IP $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
-	    ;;
-	
-	stop)
-	    stop_host $NS_NAME $MAIN_BRIDGE_NAME
-	    ;;
-	*)
-	    echo "Usage: $0 {start|stop}"
-	    ;;
-    esac
+    start_vm net1 net1.1 172.16.0.101/24 172.16.0.240 net1-br1
+    start_vm net1 net1.2 172.16.0.102/24 172.16.0.240 net1-br1
+    start_vm net1 net1.3 172.16.0.103/24 172.16.0.240 net1-br1
+    
+    start_vm net1 net1.4 172.16.1.101/24 172.16.1.240 net1-br2
+    start_vm net1 net1.5 172.16.1.102/24 172.16.1.240 net1-br2
 }
 
+stop_net1() {
 
+    stop_vm net1 net1.1 net1-br1
+    stop_vm net1 net1.2 net1-br1
+    stop_vm net1 net1.3 net1-br1
+    
+    stop_vm net1 net1.4 net1-br2
+    stop_vm net1 net1.5 net1-br2
+    
+    echo "Stopping virtual bridge net1-br1"
+    stop_bridge net1-br1 net1
+    
+    echo "Stopping virtual bridge net1-br2"
+    stop_bridge net1-br2 net1
+
+    stop_host net1 $MAIN_BRIDGE_NAME
+
+}
+
+start_net2() {
+    start_host net2 10.0.0.4/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    
+    echo "Starting virtual bridge net2-br1"
+    start_bridge net2-br1 172.16.2.240/24 net2
+    
+    start_vm net2 net2.1 172.16.2.101/24 172.16.0.240 net2-br1
+    start_vm net2 net2.2 172.16.2.102/24 172.16.0.240 net2-br1
+}
+
+stop_net2() {
+
+    stop_vm net2 net2.1 net2-br1
+    stop_vm net2 net2.2 net2-br1
+
+    echo "Stopping virtual bridge net2-br1"
+    stop_bridge net2-br1 net2
+
+    stop_host net2 $MAIN_BRIDGE_NAME
+
+}
+
+start_zoo1() {
+    start_host zoo1 10.0.0.5/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+}
+
+stop_zoo1() {	
+    stop_host zoo1 $MAIN_BRIDGE_NAME
+}
+
+start_zoo2() {
+    start_host zoo2 10.0.0.6/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+}
+
+stop_zoo2() {	
+    stop_host zoo2 $MAIN_BRIDGE_NAME
+}
 
 case $1 in
     start)
-	testbed start
+	start_testbed
 	;;
 
     stop)
-	testbed stop
+	stop_testbed
 	;;
 
     *)

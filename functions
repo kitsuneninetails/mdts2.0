@@ -27,13 +27,15 @@ start_vm() {
 
 # stop_vm (string vm_ns_name)
 stop_vm() {
-    VM_NS_NAME=$1
+    HV_NS_NAME=$1
+    VM_NS_NAME=$2
+    VM_BRIDGE_NAME=$3
 
     VM_IFACE_HV_NAME=vethvm$VM_NS_NAME
 
     sudo ip netns exec $HV_NS_NAME brctl delif $VM_BRIDGE_NAME $VM_IFACE_HV_NAME
-    sudo ip link set dev $VM_IFACE_HV_NAME down
-    sudo ip link del $VM_IFACE_HV_NAME
+    sudo ip netns exec $HV_NS_NAME ip link set dev $VM_IFACE_HV_NAME down
+    sudo ip netns exec $HV_NS_NAME ip link del $VM_IFACE_HV_NAME
     sudo ip netns del $VM_NS_NAME
 
 }
