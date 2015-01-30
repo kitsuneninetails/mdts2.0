@@ -1,0 +1,26 @@
+#!/bin/bash
+
+set -x
+
+source ./testenv.conf
+source ./functions
+
+HYPERVISOR_NS_NAME=net1
+VM_NS_NAME=$HYPERVISOR_NS_NAME.1
+VM_IFACE_IP=172.16.0.101/24
+VM_IFACE_GW=172.16.0.240
+
+case $1 in
+  start)
+    VM_BRIDGE_NAME=$2
+    start_vm $HYPERVISOR_NS_NAME $VM_NS_NAME $VM_IFACE_IP $VM_IFACE_GW $VM_BRIDGE_NAME
+    ;;
+
+  stop)
+    stop_vm $VM_NS_NAME
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop}"
+    ;;
+esac

@@ -1,0 +1,106 @@
+#!/bin/bash
+
+set -x
+
+# start_vm (string hypervisor_ns, string vm_ns_name, string vm_ns_ip, string vm_ns_gw)
+start_vm() {
+    HV_NS_NAME=$1
+    VM_NS_NAME=$2
+    VM_IFACE_IP=$3
+    VM_IFACE_GW=$4
+    VM_BRIDGE_NAME=$5
+
+    VM_IFACE_HV_NAME=vethvm$VM_NS_NAME
+    VM_IFACE_HV_NAME_PEER=$VM_IFACE_HV_NAME.p
+    VM_IFACE_NAME=eth0
+
+    sudo ip netns add $VM_NS_NAME
+    sudo ip link add $VM_IFACE_HV_NAME type veth peer name $VM_IFACE_HV_NAME_PEER
+    sudo ip link set dev $VM_IFACE_HV_NAME up netns $HV_NS_NAME name $VM_IFACE_HV_NAME
+    sudo ip link set dev $VM_IFACE_HV_NAME_PEER up netns $VM_NS_NAME name $VM_IFACE_NAME
+    sudo ip netns exec $VM_NS_NAME ip addr add $VM_IFACE_IP dev $VM_IFACE_NAME
+    sudo ip netns exec $VM_NS_NAME ip link set dev lo up
+    sudo ip netns exec $VM_NS_NAME ip link set dev $VM_IFACE_NAME up
+    sudo ip netns exec $VM_NS_NAME ip route add 0.0.0.0/0 via $VM_IFACE_GW
+    sudo ip netns exec $HV_NS_NAME brctl addif $VM_BRIDGE_NAME $VM_IFACE_HV_NAME
+}
+
+# stop_vm (string vm_ns_name)
+stop_vm() {
+    VM_NS_NAME=$1
+
+    VM_IFACE_HV_NAME=vethvm$VM_NS_NAME
+
+    sudo ip netns exec $HV_NS_NAME brctl delif $VM_BRIDGE_NAME $VM_IFACE_HV_NAME
+    sudo ip link set dev $VM_IFACE_HV_NAME down
+    sudo ip link del $VM_IFACE_HV_NAME
+    sudo ip netns del $VM_NS_NAME
+
+}
+
+# start_host (string namespace_name, string iface_ip, string bridge_name, string bridge_ip)
+start_host() {
+    NS_NAME=$1
+    MAIN_IFACE_IP=$2
+    BRIDGE_NAME=$3
+    BRIDGE_IP=$4
+
+    MAIN_IFACE_LOCAL_NAME=veth$NS_NAME
+    MAIN_IFACE_LOCAL_NAME_PEER=$MAIN_IFACE_LOCAL_NAME.peer
+    MAIN_IFACE_NAME=eth0
+    BRIDGE_GW=$(echo $BRIDGE_IP | sed -e 's/\([^\/]\+\)\/[0-9]\+/\1/')
+
+    sudo ip link add dev $MAIN_IFACE_LOCAL_NAME type veth peer name $MAIN_IFACE_LOCAL_NAME_PEER
+    sudo ip link set dev $MAIN_IFACE_LOCAL_NAME up
+    sudo brctl addif $BRIDGE_NAME $MAIN_IFACE_LOCAL_NAME
+    sudo ip netns add $NS_NAME
+    sudo ip netns exec $NS_NAME ip link set dev lo up
+    sudo ip link set dev $MAIN_IFACE_LOCAL_NAME_PEER up netns $NS_NAME name $MAIN_IFACE_NAME
+    sudo ip netns exec $NS_NAME ip addr add $MAIN_IFACE_IP dev $MAIN_IFACE_NAME
+    sudo ip netns exec $NS_NAME ip route add 0.0.0.0/0 via $BRIDGE_GW
+}
+
+# stop_host (string namespace_name, string bridge_name)
+stop_host() {
+    NS_NAME=$1
+    BRIDGE_NAME=$2
+
+    MAIN_IFACE_LOCAL_NAME=veth$NS_NAME
+
+    sudo ip link set dev $MAIN_IFACE_LOCAL_NAME down
+    sudo brctl delif $BRIDGE_NAME $MAIN_IFACE_LOCAL_NAME
+    sudo ip netns del $NS_NAME
+    sudo ip link del dev $MAIN_IFACE_LOCAL_NAME
+}
+
+# start_bridge(string bridge_name, string bridge_ip)
+start_bridge() {
+    BRIDGE_NAME=$1
+    BRIDGE_IP=$2
+
+    NS_NAME=$3
+    if [ "$NS_NAME." == "." ]; then
+	sudo brctl addbr $BRIDGE_NAME
+	sudo ip addr add $BRIDGE_IP dev $BRIDGE_NAME
+	sudo ip link set dev $BRIDGE_NAME up
+    else
+	sudo ip netns exec $NS_NAME brctl addbr $BRIDGE_NAME
+	sudo ip netns exec $NS_NAME ip addr add $BRIDGE_IP dev $BRIDGE_NAME
+	sudo ip netns exec $NS_NAME ip link set dev $BRIDGE_NAME up
+    fi
+
+}
+
+# stop_bridge(string bridge_name)
+stop_bridge() {
+    BRIDGE_NAME=$1
+    NS_NAME=$2
+    if [ "$NS_NAME." == "." ]; then
+	sudo ip link set dev $BRIDGE_NAME down
+	sudo brctl delbr $BRIDGE_NAME
+    else
+	sudo ip netns exec $NS_NAME ip link set dev $BRIDGE_NAME down
+	sudo ip netns exec $NS_NAME brctl delbr $BRIDGE_NAME
+    fi
+
+}

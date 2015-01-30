@@ -1,0 +1,22 @@
+#!/bin/bash
+
+source ./testenv.conf
+source ./functions
+
+NS_NAME=comp1
+MAIN_IFACE_IP=10.0.0.4/24
+
+case $1 in
+  start)
+    start_host $NS_NAME $MAIN_IFACE_IP
+    ;;
+
+  stop)
+    stop_host $NS_NAME
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop}"
+    ;;
+esac
+
