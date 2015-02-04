@@ -8,32 +8,29 @@ start_vm() {
     VM_NS_NAME=$2
     VM_IFACE_IP=$3
     VM_IFACE_GW=$4
-    VM_BRIDGE_NAME=$5
 
     VM_IFACE_HV_NAME=vethvm$VM_NS_NAME
     VM_IFACE_HV_NAME_PEER=$VM_IFACE_HV_NAME.p
     VM_IFACE_NAME=eth0
 
     sudo ip netns add $VM_NS_NAME
-    sudo ip link add $VM_IFACE_HV_NAME type veth peer name $VM_IFACE_HV_NAME_PEER
+    sudo ip link add dev $VM_IFACE_HV_NAME type veth peer name $VM_IFACE_HV_NAME_PEER
     sudo ip link set dev $VM_IFACE_HV_NAME up netns $HV_NS_NAME name $VM_IFACE_HV_NAME
     sudo ip link set dev $VM_IFACE_HV_NAME_PEER up netns $VM_NS_NAME name $VM_IFACE_NAME
     sudo ip netns exec $VM_NS_NAME ip addr add $VM_IFACE_IP dev $VM_IFACE_NAME
     sudo ip netns exec $VM_NS_NAME ip link set dev lo up
     sudo ip netns exec $VM_NS_NAME ip link set dev $VM_IFACE_NAME up
     sudo ip netns exec $VM_NS_NAME ip route add 0.0.0.0/0 via $VM_IFACE_GW
-    sudo ip netns exec $HV_NS_NAME brctl addif $VM_BRIDGE_NAME $VM_IFACE_HV_NAME
+
 }
 
-# stop_vm (string vm_ns_name)
+# stop_vm (string hypervisor_ns, string vm_ns_name)
 stop_vm() {
     HV_NS_NAME=$1
     VM_NS_NAME=$2
-    VM_BRIDGE_NAME=$3
 
     VM_IFACE_HV_NAME=vethvm$VM_NS_NAME
 
-    sudo ip netns exec $HV_NS_NAME brctl delif $VM_BRIDGE_NAME $VM_IFACE_HV_NAME
     sudo ip netns exec $HV_NS_NAME ip link set dev $VM_IFACE_HV_NAME down
     sudo ip netns exec $HV_NS_NAME ip link del $VM_IFACE_HV_NAME
     sudo ip netns del $VM_NS_NAME
@@ -73,6 +70,48 @@ stop_host() {
     sudo brctl delif $BRIDGE_NAME $MAIN_IFACE_LOCAL_NAME
     sudo ip netns del $NS_NAME
     sudo ip link del dev $MAIN_IFACE_LOCAL_NAME
+}
+
+# start_router(string router_ns_name, string port_name1, string router_ip_for_port1, 
+#                                     string port_name2, string router_ip_for_port2, ...)
+start_router() {
+
+    NS_NAME=$1
+
+    shift
+
+    sudo ip netns add $NS_NAME
+
+    sudo ip netns exec $NS_NAME ip link set dev lo up
+    sudo ip netns exec $NS_NAME ip addr add 1.1.1.1/32 dev lo
+
+    j=0
+    while (( $# )); do
+	PORT=$1
+	IP=$2
+	if [ ".$2" == "." ]; then
+	    IP=127.0.0.1/32
+	fi
+	sudo ip link add dev veth$NS_NAME.0 type veth peer name veth$NS_NAME.p
+	sudo ip link set dev veth$NS_NAME.0 up
+	sudo ip link set dev veth$NS_NAME.0 up netns $NS_NAME name eth$j
+	sudo ip link set dev veth$NS_NAME.p up netns $PORT name eth1
+	sudo ip netns exec $NS_NAME ip addr add $IP dev eth$j
+	shift 2
+	((j++))
+    done
+
+    sudo ip netns exec $NS_NAME sh -c 'echo 0 >/proc/sys/net/ipv4/conf/all/rp_filter'
+    sudo ip netns exec $NS_NAME sh -c 'echo 0 >/proc/sys/net/ipv4/conf/eth0/rp_filter'
+    sudo ip netns exec $NS_NAME sh -c 'echo 0 >/proc/sys/net/ipv4/conf/eth1/rp_filter'
+}
+
+# stop_router(string router_ns_name)
+stop_router() {
+    NS_NAME=$1
+
+    sudo ip netns del $NS_NAME
+
 }
 
 # start_bridge(string bridge_name, string bridge_ip)

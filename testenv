@@ -1,9 +1,39 @@
 #!/bin/bash
 set -x
 
-MAIN_NS="net1 net2 zoo1 zoo2"
+MIDONET_SRC_DIR=~/src/git/midonet
+MIDONET_TEST_SCRIPTS_DIR=$MIDONET_SRC_DIR/tests/mmm/scripts
+
+COMPUTE_NS="cmp1 cmp2"
+ZOO_NS="zoo1 zoo2 zoo3"
+CASS_NS="cass1 cass2 cass3"
+
 MAIN_BRIDGE_NAME=br0
+
 MAIN_BRIDGE_IP=10.0.0.240/24
+
+ZOOKEEPER1_IP=10.0.0.2
+ZOOKEEPER2_IP=10.0.0.3
+ZOOKEEPER3_IP=10.0.0.4
+
+CASSANDRA1_IP=10.0.0.5
+CASSANDRA2_IP=10.0.0.6
+CASSANDRA3_IP=10.0.0.7
+
+COMPUTE1_IP=10.0.0.8
+COMPUTE2_IP=10.0.0.9
+COMPUTE3_IP=10.0.0.10
+
+ROUTER1_IF1_IP=10.0.1.240/16
+ROUTER1_IF2_IP=10.0.2.240/16
+
+VM_CMP1_0_IP=172.16.0.1
+VM_CMP2_0_IP=172.16.0.2
+VM_CMP2_1_IP=172.16.0.1
+VM_CMP2_2_IP=172.16.0.2
+VM_CMP3_0_IP=172.16.0.3
+
+VM_GW_IP=172.16.0.240
 
 source ./functions
 
@@ -11,97 +41,515 @@ start_testbed() {
     echo "Starting main bridge"
     start_bridge $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
 
-    for i in $MAIN_NS; do
-	eval start_$i
-    done
+    if test -x /etc/init.d/iptables; then
+	sudo /etc/init.d/iptables stop
+    fi
+    
+    sudo iptables -t nat -A POSTROUTING -s 10.0.0.0/24 ! -d 10.0.0.0/24 -j MASQUERADE
+    sudo /bin/bash -c "echo 1 >/proc/sys/net/ipv4/ip_forward"
+    
+    init_network_hosts
+    init_zookeeper_hosts
+    init_cassandra_hosts
+    init_compute_hosts
+
+    start_zookeeper_hosts
+    start_cassandra_hosts
+    start_network_hosts
+    start_compute_hosts
+    start_virtual_machines
+#    start_vlan
 }
 
 stop_testbed() {
-    for i in $MAIN_NS; do
-	eval stop_$i
-    done
-    
+    stop_network_hosts
+    stop_virtual_machines
+    stop_compute_hosts
+    stop_cassandra_hosts
+    stop_zookeeper_hosts
+#    stop_vlan
+
     echo "Stopping main bridge"
     stop_bridge $MAIN_BRIDGE_NAME
 }
 
-start_net1() {
-    start_host net1 10.0.0.3/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
-    
-    echo "Starting virtual bridge net1-br1"
-    start_bridge net1-br1 172.16.0.240/24 net1
-    
-    echo "Starting virtual bridge $VM_BRIDGE2_NAME"
-    start_bridge net1-br2 172.16.1.240/24 net1
-    
-    start_vm net1 net1.1 172.16.0.101/24 172.16.0.240 net1-br1
-    start_vm net1 net1.2 172.16.0.102/24 172.16.0.240 net1-br1
-    start_vm net1 net1.3 172.16.0.103/24 172.16.0.240 net1-br1
-    
-    start_vm net1 net1.4 172.16.1.101/24 172.16.1.240 net1-br2
-    start_vm net1 net1.5 172.16.1.102/24 172.16.1.240 net1-br2
+init_network_hosts() {
+    echo "Initializing network node..."
+
+    sudo sed "s/\(127.0.0.1:2181\|$ZOOKEEPER1_IP:2181[^<]*\)/$ZOOKEEPER1_IP:2181,$ZOOKEEPER2_IP:2181,$ZOOKEEPER3_IP:2181/" \
+        -i /usr/share/midonet-api/WEB-INF/web.xml
+
+    if ! grep -q "zookeeper-curator_enabled" /usr/share/midonet-api/WEB-INF/web.xml; then
+	sudo sed "s/<param-name>zookeeper-zookeeper_hosts<\/param-name>/<param-name>zookeeper-curator_enabled<\/param-name>\n    <param-value>true<\/param-value>\n  <\/context-param>\n  <context-param>\n    <param-name>zookeeper-zookeeper_hosts<\/param-name>/" \
+    -i /usr/share/midonet-api/WEB-INF/web.xml
+    fi
+
+    sudo sed -i 's/org.midonet.api.auth.keystone.v2_0.KeystoneService/org.midonet.api.auth.MockAuthService/g' /usr/share/midonet-api/WEB-INF/web.xml
+
+    # Copy the configuration file template for Tomcat7
+    sudo cp $MIDONET_SRC_DIR/midonet-api/conf/midonet-api.xml /etc/tomcat7/Catalina/localhost/midonet-api.xml
+
+    # Add a workaround for tomcat7 to start slowly: MN-2723
+    if ! grep -q 'java.security.egd' /etc/default/tomcat7; then
+	sudo sed -i '$aJAVA_OPTS="$JAVA_OPTS -Djava.security.egd=file:/dev/./urandom"' /etc/default/tomcat7
+    fi
+
+    if test -f /var/www/html/midonet-cp/config.js; then
+	sudo sed "s%https://example.com/midonet-api%http://$public:8080/midonet-api%g;s/example.com/$public:8443/g" -i /var/www/html/midonet-cp/config.js
+    elif test -f /var/www/midonet-cp/config.js; then
+	sudo sed "s%https://example.com/midonet-api%http://$public:8080/midonet-api%g;s/example.com/$public:8443/g" -i /var/www/midonet-cp/config.js
+    fi
 }
 
-stop_net1() {
+start_network_hosts() {
+    echo "Starting network node..."
+    sudo /etc/init.d/tomcat7 restart
+    sudo /etc/init.d/apache2 restart
+}
 
-    stop_vm net1 net1.1 net1-br1
-    stop_vm net1 net1.2 net1-br1
-    stop_vm net1 net1.3 net1-br1
+stop_network_hosts() {
+    echo "Stopping network node..."
+    sudo /etc/init.d/tomcat7 stop
+}
+
+init_compute_hosts() {
+    echo "Initializing network topology and compute nodes..."
+
+    if lsmod | grep openvswitch >/dev/null; then
+        sudo modprobe -r openvswitch
+    fi
+    sudo modprobe openvswitch
+
+    for i in 1 2 3; do
+	sudo rm -rf /etc/midolman.$i
+	sudo cp -LR --preserve=all /etc/midolman /etc/midolman.$i
+	sudo rm /etc/midolman.$i/host_uuid.properties
+
+	# generates host uuid
+	sudo /bin/bash -c "cat <<EOF > /etc/midolman.$i/host_uuid.properties
+# generated for MMM MM $n
+host_uuid=00000000-0000-0000-0000-00000000000$n
+EOF
+"
+        sudo sed "/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = $ZOOKEEPER1_IP:2181,$ZOOKEEPER2_IP:2181,$ZOOKEEPER3_IP:2181/" \
+            -i /etc/midolman.$i/midolman.conf
+
+        sudo sed "/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = $CASSANDRA1_IP,$CASSANDRA2_IP,$CASSANDRA3_IP/;s/^replication_factor =.*$/replication_factor = 3/" \
+            -i /etc/midolman.$i/midolman.conf
+
+        sudo sed "/^\[midolman\]/,/^\[/ s%^[# ]*bgpd_binary = /usr/lib/quagga.*$%bgpd_binary = /usr/lib/quagga%" \
+            -i /etc/midolman.$i/midolman.conf
+
+	if ! grep -q "\[haproxy_health_monitor\]" /etc/midolman.$i/midolman.conf > /dev/null; then
+            sudo /bin/bash -c "cat <<EOF >> /etc/midolman.$i/midolman.conf
+# Enable haproxy on the node.
+[haproxy_health_monitor]
+namespace_cleanup = true
+health_monitor_enable = true
+haproxy_file_loc = /etc/midolman.$i/l4lb/
+EOF
+"
+	fi
+
+	sudo sed -i 's/root level="INFO"/root level="DEBUG"/' /etc/midolman.$i/logback.xml
+	# Disable rotation by removing policy setting to fix MN-3009
+	sudo sed -i '/<rollingPolicy/, /<\/rollingPolicy/d' /etc/midolman.$i/logback.xml
+	sudo sed -i 's/rolling.RollingFileAppender/FileAppender/g' /etc/midolman.$i/logback.xml
+
+	sudo rm -rf /var/lib/midolman.$i
+        sudo mkdir -p /var/lib/midolman.$i
+
+	sudo rm -rf /var/log/midolman.$i
+        sudo mkdir -p /var/log/midolman.$i
+
+	# Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
+	sudo sed -i '/runjdwp/s/^..//g' /etc/midolman.$i/midolman-env.sh
+	sudo sed -i '/runjdwp/s/1414/141'$i'/g' /etc/midolman.$i/midolman-env.sh
+
+	# Setting memory to the ones before
+	# https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
+	sudo sed -i 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/' /etc/midolman.$i/midolman-env.sh
+	sudo sed -i 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/' /etc/midolman.$i/midolman-env.sh
+    done
+
+    echo "Initializing routers..."
+
+    for n in 0 1 2 3; do
+	if test ! -d /etc/quagga.$n; then
+            sudo mkdir -p /etc/quagga.$n
+	fi
+	
+	if test ! -d /var/lib/quagga.$n; then
+            sudo mkdir -p /var/lib/quagga.$n
+	fi
+	sudo chown -R quagga.quagga /var/lib/quagga.$n
+	
+	if test ! -d /var/log/quagga.$n; then
+            sudo mkdir -p /var/log/quagga.$n
+	fi
+	sudo chown -R quagga.quagga /var/log/quagga.$n
+	
+	if test -d /run; then
+            if test ! -d /run.$n/quagga; then
+		sudo mkdir -p /run.$n/quagga
+            fi
+            sudo chown -R quagga.quagga /run.$n/quagga
+	else
+            if test ! -d /var/run.$n/quagga; then
+		sudo mkdir -p /var/run.$n/quagga
+            fi
+            sudo chown -R quagga.quagga /var/run.$n/quagga
+            if grep "Red Hat Enterprise Linux" /etc/issue >/dev/null; then
+		sudo chcon --type zebra_var_run_t /var/run.$n//var/log/cassandra.1/system.logquagga
+            fi
+	fi
+
+	if [ $n -ne 0 ]; then
+	    sudo cp -a $MIDONET_TEST_SCRIPTS_DIR/quagga/quagga.1+/* /etc/quagga.$i
+
+	    sudo sed "s/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/" \
+		-i /etc/midolman.$n/midolman.conf
+	    sudo sed "s/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/" \
+		-i /etc/midolman.$n/midolman.conf
+	    sudo sed "s/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/" \
+		-i /etc/midolman.$n/midolman.conf
+	else
+	    sudo cp -a $MIDONET_TEST_SCRIPTS_DIR/quagga/quagga.0/* /etc/quagga.0
+	fi
+	    
+
+    done
+
+
+}
+
+start_compute_hosts() {
+    echo "Starting compute nodes..."
+    start_host cmp1 $COMPUTE1_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    start_host cmp2 $COMPUTE2_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    start_host cmp3 $COMPUTE3_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+
+    sudo ip netns exec cmp1 dnsmasq --no-host --no-resolv -S 8.8.8.8
+
+    echo "Starting router node..."
+    start_router rtr0 cmp1 $ROUTER1_IF1_IP cmp2 $ROUTER1_IF2_IP
+
+    sudo /etc/init.d/quagga stop >/dev/null 2>&1 || true
+    find /var/log/quagga -type f -exec sudo rm -f '{}' ';' || true
+
+    screen -d -m -S router_host -t router0 /bin/bash -c "sudo ip netns exec rtr0 unshare -m ./testenv router-ctl start 0"
+
+    screen -d -m -S cmp_host1 -t cmp1 /bin/bash -c "sudo ip netns exec cmp1 unshare -m ./testenv compute-ctl start 1"
+    sleep 30
+    screen -d -m -S cmp_host2 -t cmp2 /bin/bash -c "sudo ip netns exec cmp2 unshare -m ./testenv compute-ctl start 2"
+    sleep 30
+    screen -d -m -S cmp_host3 -t cmp3 /bin/bash -c "sudo ip netns exec cmp3 unshare -m ./testenv compute-ctl start 3"
+}    
+
+stop_compute_hosts() {
+    echo "Stopping compute nodes..."
+    screen -S cmp_host1 -X quit
+    screen -S cmp_host2 -X quit
+    screen -S cmp_host3 -X quit
+
+    screen -S router_host$i -X quit
+
+    stop_host cmp1 $MAIN_BRIDGE_NAME
+    stop_host cmp2 $MAIN_BRIDGE_NAME
+    stop_host cmp3 $MAIN_BRIDGE_NAME
+
+    echo "Stopping router nodes..."
+    sudo ip netns exec rtr0 unshare -m ./testenv router-ctl stop $i
+    stop_router rtr0
+
+}    
+
+compute_control() {
+
+    if [ ".$2" == "." ]; then
+	exit
+    fi
+
+    mount --bind /run.$2 /run
+    mount --bind /var/log/quagga.$2 /var/log/quagga
+    mount --bind /etc/quagga.$2 /etc/quagga
+
+    mount --bind /var/lib/midolman.$2 /var/lib/midolman
+    mount --bind /var/log/midolman.$2 /var/log/midolman
+    mount --bind /etc/midolman.$2 /etc/midolman
     
-    stop_vm net1 net1.4 net1-br2
-    stop_vm net1 net1.5 net1-br2
+    # generates host uuid
+    cat <<EOF > /etc/midolman/host_uuid.properties
+# generated for MMM MM $n
+host_uuid=00000000-0000-0000-0000-00000000000$2
+EOF
     
-    echo "Stopping virtual bridge net1-br1"
-    stop_bridge net1-br1 net1
+
+    case $1 in
+	start)
+	    find /var/log/quagga -type f -exec sudo rm -f '{}' ';'
+	    sudo sysctl -w net.ipv6.conf.default.disable_ipv6=1
+	    exec /usr/share/midolman/midolman-start
+	    ;;
+	stop)
+	    ;;
+    esac
     
-    echo "Stopping virtual bridge net1-br2"
-    stop_bridge net1-br2 net1
-
-    stop_host net1 $MAIN_BRIDGE_NAME
-
 }
 
-start_net2() {
-    start_host net2 10.0.0.4/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+router_control() {
+
+    if [ ".$2" == "." ]; then
+	exit
+    fi
     
-    echo "Starting virtual bridge net2-br1"
-    start_bridge net2-br1 172.16.2.240/24 net2
+    mount --bind /run.$2 /run
+    mount --bind /var/log/quagga.$2 /var/log/quagga
+    mount --bind /etc/quagga.$2 /etc/quagga
+
+    case $1 in
+	start)
+	    find /var/log/quagga.$2 -type f -exec sudo rm -f '{}' ';' || true
+	    /etc/init.d/quagga start
+	    exec /bin/bash
+	    ;;
+	stop)
+	    /etc/init.d/quagga stop
+	    ;;
+    esac
+
+}
+
+start_virtual_machines() {
+    start_vm cmp1 cmp1.0 $VM_CMP1_0_IP/24 $VM_GW_IP
+    start_vm cmp2 cmp2.0 $VM_CMP2_0_IP/24 $VM_GW_IP
+    start_vm cmp2 cmp2.1 $VM_CMP2_1_IP/24 $VM_GW_IP
+    start_vm cmp2 cmp2.2 $VM_CMP2_2_IP/24 $VM_GW_IP
+    start_vm cmp3 cmp3.0 $VM_CMP3_0_IP/24 $VM_GW_IP
+}
+
+stop_virtual_machines() {
+    stop_vm cmp1 cmp1.0
+    stop_vm cmp2 cmp2.0
+    stop_vm cmp2 cmp2.1
+    stop_vm cmp2 cmp2.2
+    stop_vm cmp3 cmp3.0
+}
+
+init_zookeeper_hosts() {
+    echo "Initializing zookeeper nodes..."
+    sudo rm -rf /etc/zookeeper.test
+    sudo cp -LR --preserve=all /etc/zookeeper /etc/zookeeper.test
+
+    sudo /bin/bash -c "echo \"server.1=$ZOOKEEPER1_IP:2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg"
+    sudo /bin/bash -c "echo \"server.2=$ZOOKEEPER2_IP:2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg"
+    sudo /bin/bash -c "echo \"server.3=$ZOOKEEPER3_IP:2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg"
+
+    for i in 1 2 3; do
+	sudo rm -rf /var/lib/zookeeper.$i
+	sudo mkdir -p /var/lib/zookeeper.$i
+	sudo mkdir -p /var/lib/zookeeper.$i/data
+	sudo /bin/bash -c "echo \"$i\" >/var/lib/zookeeper.$i/data/myid"
+	sudo /bin/bash -c "echo \"$i\" >/var/lib/zookeeper.$i/myid"
+	sudo chown -R zookeeper.zookeeper /var/lib/zookeeper.$i
+        sudo rm -rf /var/log/zookeeper.$i
+	sudo mkdir -p /var/log/zookeeper.$i
+	sudo chown -R zookeeper.zookeeper /var/log/zookeeper.$i
+        sudo rm -rf /var/run.$i/zookeeper.$i
+        sudo mkdir -p /run.$i/zookeeper
+        sudo chown -R zookeeper.zookeeper /run.$i/zookeeper
+    done
+}
+
+start_zookeeper_hosts() {
+    echo "Starting zookeeper nodes..."
+    echo "Starting Zookeeper host on NS zoo1 = $ZOOKEEPER1_IP"
+    start_host zoo1 $ZOOKEEPER1_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    echo "Starting Zookeeper host on NS zoo2 = $ZOOKEEPER2_IP"
+    start_host zoo2 $ZOOKEEPER2_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    echo "Starting Zookeeper host on NS zoo3 = $ZOOKEEPER3_IP"
+    start_host zoo3 $ZOOKEEPER3_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+
+    screen -d -m -S zoo_host1 -t zoo1 /bin/bash -c "sudo ip netns exec zoo1 unshare -m ./testenv zoo-ctl start 1"
+    screen -d -m -S zoo_host2 -t zoo2 /bin/bash -c "sudo ip netns exec zoo2 unshare -m ./testenv zoo-ctl start 2"
+    screen -d -m -S zoo_host3 -t zoo3 /bin/bash -c "sudo ip netns exec zoo3 unshare -m ./testenv zoo-ctl start 3"
+}
+
+stop_zookeeper_hosts() {
+    echo "Stopping zookeeper nodes..."
+    for i in 1 2 3; do
+	sudo ip netns exec zoo$i unshare -m ./testenv zoo-ctl stop $i
+	echo "Stopping Zookeeper host on NS zoo$i"
+	stop_host zoo$i $MAIN_BRIDGE_NAME
+	screen -S zoo_host$i -X quit
+    done
+}
+
+zookeeper_control() {
+    if [ ".$2" == "." ]; then
+	exit
+    fi
+
+    mount --bind /run.$2 /run
+    mount --bind /var/lib/zookeeper.$2 /var/lib/zookeeper
+    mount --bind /var/log/zookeeper.$2 /var/log/zookeeper
+    mount --bind /etc/zookeeper.test /etc/zookeeper
+
+    case $1 in
+	start)
+	    find /var/log/zookeeper -type f -exec sudo rm -f '{}' ';' || true
+	    /etc/init.d/zookeeper start
+	    exec /bin/bash
+	    ;;
+
+	stop)
+	    /etc/init.d/zookeeper stop
+	    ;;
+    esac
+
+}
+
+init_cassandra_hosts() {    
+    echo "Initializing cassandra nodes..."
+    initial_token_1=56713727820156410577229101238628035242
+    initial_token_2=113427455640312821154458202477256070484
+    initial_token_3=170141183460469231731687303715884105726
     
-    start_vm net2 net2.1 172.16.2.101/24 172.16.0.240 net2-br1
-    start_vm net2 net2.2 172.16.2.102/24 172.16.0.240 net2-br1
+    seeds="$CASSANDRA1_IP,$CASSANDRA2_IP,$CASSANDRA3_IP"
+
+    for i in 1 2 3; do    
+
+	sudo rm -rf /etc/cassandra.$i
+	sudo cp -LR --preserve=all /etc/cassandra /etc/cassandra.$i
+
+	# Work around for https://issues.apache.org/jira/browse/CASSANDRA-5895
+	sudo sed 's/-Xss[1-9][0-9]*k/-Xss228k/' -i /etc/cassandra.$i/cassandra-env.sh
+
+	eval sudo sed \
+	    -e \"s/^cluster_name:.*$/cluster_name: 'midonet'/\" \
+	    -e \"s/^initial_token:.*$/initial_token: \$initial_token_${i}/\" \
+	    -e \"/^seed_provider:/,/^$/ s/seeds:.*$/seeds: \"$seeds\"/\" \
+	    -e \"s/^listen_address:.*$/listen_address: \$CASSANDRA${i}_IP/\" \
+	    -e \"s/^rpc_address:.*$/rpc_address: \$CASSANDRA${i}_IP/\" \
+            -i /etc/cassandra.$i/cassandra.yaml
+
+	sudo rm -rf /var/lib/cassandra.$i
+	sudo mkdir -p /var/lib/cassandra.$i
+	sudo chown -R cassandra.cassandra /var/lib/cassandra.$i
+
+        sudo rm -rf /var/log/cassandra.$i
+	sudo mkdir -p /var/log/cassandra.$i
+	sudo chown -R cassandra.cassandra /var/log/cassandra.$i
+
+        sudo rm -rf /var/run.$i/cassandra.$i
+        sudo mkdir -p /run.$i/cassandra
+        sudo chown -R cassandra.cassandra /run.$i/cassandra
+    done
+
+    find /var/log/cassandra -type f -exec sudo rm -f '{}' ';' || true
+
 }
 
-stop_net2() {
+start_cassandra_hosts() {    
+    echo "Starting cassandra nodes..."
 
-    stop_vm net2 net2.1 net2-br1
-    stop_vm net2 net2.2 net2-br1
+    echo "Starting Cassandra host on NS cass1 = $CASSANDRA1_IP"
+    start_host cass1 $CASSANDRA1_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    echo "Starting Cassandra host on NS cass2 = $CASSANDRA2_IP"
+    start_host cass2 $CASSANDRA2_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+    echo "Starting Cassandra host on NS cass3 = $CASSANDRA3_IP"
+    start_host cass3 $CASSANDRA3_IP/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
 
-    echo "Stopping virtual bridge net2-br1"
-    stop_bridge net2-br1 net2
+    screen -d -m -S cass_host1 -t cass1 /bin/bash -c "sudo ip netns exec cass1 unshare -m ./testenv cass-ctl start 1"
+    screen -d -m -S cass_host2 -t cass2 /bin/bash -c "sudo ip netns exec cass2 unshare -m ./testenv cass-ctl start 2"
+    screen -d -m -S cass_host3 -t cass3 /bin/bash -c "sudo ip netns exec cass3 unshare -m ./testenv cass-ctl start 3"
 
-    stop_host net2 $MAIN_BRIDGE_NAME
+    # Checking Cassandra status
+    sleep 5
+    retries=0
+    for i in 1 2 3
+    do
+	echo "Cassandra at cass$i"
+	until eval sudo ip netns exec cass$i nodetool -h \$CASSANDRA${i}_IP status
+	do
+	    echo "Waiting for Cassandra cass$i to start"
+	    sleep 5
+	    ((retries++))
+	    if [ $retries -gt 10 ]
+	    then
+		echo "Could not start Cassandra at cass$i"
+		exit 1
+	    fi
+	done
+	retries=0
+    done
 
 }
 
-start_zoo1() {
-    start_host zoo1 10.0.0.5/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+stop_cassandra_hosts() {    
+    echo "Stopping cassandra nodes..."
+    for i in 1 2 3; do
+	sudo ip netns exec cass$i unshare -m ./testenv cass-ctl stop $i
+	echo "Stopping Cassandra host on NS cass$i"
+	stop_host cass$i $MAIN_BRIDGE_NAME
+	screen -S cass_host$i -X quit
+    done
 }
 
-stop_zoo1() {	
-    stop_host zoo1 $MAIN_BRIDGE_NAME
+cassandra_control() {
+    if [ ".$2" == "." ]; then
+	exit
+    fi
+    
+    mount --bind /run.$2 /run
+    mount --bind /var/lib/cassandra.$2 /var/lib/cassandra
+    mount --bind /var/log/cassandra.$2 /var/log/cassandra
+    mount --bind /etc/cassandra.$2 /etc/cassandra
+	
+    case $1 in
+	start)
+	    find /var/log/cassandra -type f -exec sudo rm -f '{}' ';'
+	    MAX_HEAP_SIZE="128M" HEAP_NEWSIZE="64M" /etc/init.d/cassandra start
+	    exec /bin/bash
+	    ;;
+	stop)
+	    /etc/init.d/cassandra stop
+	    ;;
+    esac
+
 }
 
-start_zoo2() {
-    start_host zoo2 10.0.0.6/24 $MAIN_BRIDGE_NAME $MAIN_BRIDGE_IP
+start_vlan() {
+    echo "Staring VLAN..."
 }
 
-stop_zoo2() {	
-    stop_host zoo2 $MAIN_BRIDGE_NAME
+stop_vlan() {
+    echo "Stopping VLAN..."
 }
 
 case $1 in
     start)
 	start_testbed
+	;;
+
+    compute-ctl)
+	shift
+	compute_control $*
+	;;
+
+    zoo-ctl)
+	shift
+	zookeeper_control $*
+	;;
+
+    cass-ctl)
+	shift
+	cassandra_control $*
+	;;
+
+    router-ctl)
+	shift
+	router_control $*
 	;;
 
     stop)
