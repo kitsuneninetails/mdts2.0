@@ -16,40 +16,44 @@ from MTestInterface import Interface
 from MTestCLI import LinuxCLI
 
 class VirtualInterface(Interface):
-    def __init__(self, name, nearHost, farIfaceName, farHost, peerExt = '.p'):
-        super(VirtualInterface, self).__init__(name, nearHost)
-        self._peerName = self.getName() + peerExt
-        self._farHost = farHost
-        self._farIfaceName = farIfaceName
+    def __init__(self, name, near_host, far_iface_name, far_host, peer_ext = '.p'):
+        super(VirtualInterface, self).__init__(name, near_host)
+        self.peer_name = self.get_name() + peer_ext
+        self.far_host = far_host
+        self.far_iface_name = far_iface_name
 
     def setup(self):
-        # Add a veth-type interface with a peer
-        self.getCLI().cmd('ip link add dev ' + self.getName() + ' type veth peer name ' + self._peerName)
-        # Move peer iface onto far host's namespace
-        self.getCLI().cmd('ip link set dev ' + self._peerName + ' netns ' + self._farHost.getName() + ' name ' + self._farIfaceName)
-        # Add IPs
-        for ip in self._ipList:
-            self._farHost.getCLI().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self._farIfaceName)
+        # add a veth-type interface with a peer
+        self.get_cli().cmd('ip link add dev ' + self.get_name() + ' type veth peer name ' + self.peer_name)
+        # move peer iface onto far host's namespace
+        self.get_cli().cmd('ip link set dev ' + self.peer_name + ' netns ' + self.far_host.get_name() + ' name ' + self.far_iface_name)
+        # add ips
+        for ip in self.ip_list:
+            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.far_iface_name)
 
     def up(self):
         # Set main iface up
         super(VirtualInterface, self).up()
         # Set peer iface up on far host's namespace
-        self._farHost.getCLI().cmd('ip link set dev ' + self._farIfaceName + ' up')
+        self.far_host.get_cli().cmd('ip link set dev ' + self.far_iface_name + ' up')
         
     def down(self):
         super(VirtualInterface, self).down()
-        self._farHost.getCLI().cmd('ip link set dev ' + self._farIfaceName + ' down')
+        self.far_host.get_cli().cmd('ip link set dev ' + self.far_iface_name + ' down')
 
-    def addPeerRoute(self, routeIP, gwIP):
-        self._farHost.getCLI().cmd('ip route add ' + routeIP[0] + '/' + routeIP[1] + ' via ' + gwIP[0])
+    def add_peer_route(self, route_ip, gw_ip):
+        self.far_host.get_cli().cmd('ip route add ' + route_ip[0] + '/' + route_ip[1] + ' via ' + gw_ip[0])
 
-    def delPeerRoute(self, routeIP):
-        self._farHost.getCLI().cmd('ip route del ' + routeIP[0] + '/' + routeIP[1])
+    def del_peer_route(self, route_ip):
+        self.far_host.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
 
-    def getFarHost(self):
-        return self._farHost
+    def get_far_host(self):
+        return self.far_host
 
-    def getFarHostInterfaceName(self):
-        return self._farIfaceName
+    def get_far_host_interface_name(self):
+        return self.far_iface_name
+
+    def print_config(self, indent=0):
+        print ('    ' * indent) + self.name + ' linked as ' + self.far_host.get_name() + '/' \
+            + self.far_iface_name + ' with ips: ' + str(self.ip_list)
 

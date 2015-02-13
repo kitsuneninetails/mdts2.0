@@ -16,21 +16,21 @@ from MTestInterface import Interface
 
 class Bridge(Interface):
     def setup(self):
-        self.getCLI().cmd('brctl addbr '  + self.getName())
-        for ip in self._ipList:
-            self.getCLI().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.getName())
+        self.get_cli().cmd('brctl addbr '  + self.get_name())
+        for ip in self.ip_list:
+            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.get_name())
 
     def cleanup(self):
-        self.getCLI().cmd('brctl delbr '  + self.getName())
+        self.get_cli().cmd('brctl delbr '  + self.get_name())
 
     def up(self):
-        self.getCLI().cmd('ip link set dev '  + self.getName() + ' up')
+        self.get_cli().cmd('ip link set dev '  + self.get_name() + ' up')
 
     def down(self):
-        self.getCLI().cmd('ip link set dev '  + self.getName() + ' down')
+        self.get_cli().cmd('ip link set dev '  + self.get_name() + ' down')
 
-    def addLinkInterface(self, iface):
-        self.getCLI().cmd('brctl addif ' + self.getName() + ' ' + iface)
+    def add_link_interface(self, iface):
+        self.get_cli().cmd('brctl addif ' + self.get_name() + ' ' + iface)
 
-    def delLinkInterface(self, iface):
-        self.getCLI().cmd('brctl delif ' + self.getName() + ' ' + iface)
+    def del_link_interface(self, iface):
+        self.get_cli().cmd('brctl delif ' + self.get_name() + ' ' + iface)

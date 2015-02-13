@@ -17,7 +17,7 @@ import time
 import sys
 
 from MTestExceptions import *
-from MTestConfig import RootServer
+from MTestRootServer import RootServer
 from MTestCLI import LinuxCLI, NetNSCLI
 from MTestNetworkObject import NetworkObject
 from MTestBridge import Bridge
@@ -75,18 +75,22 @@ if len(sys.argv) < 2:
 else:
     cmd = sys.argv[1]
 
+if cmd == 'boot':
+    os_host = RootServer()
+    os_host.init(GlobalConfig)
+    os_host.setup()
 if cmd == 'init':
-    osHost = RootServer()
-    osHost.init(GlobalConfig)
-    osHost.setup()
+    os_host = RootServer()
+    os_host.init(GlobalConfig)
+    os_host.prepareFiles()
 elif cmd == 'stop':
-    osHost = RootServer()
-    osHost.init(GlobalConfig)
-    osHost.cleanup()
+    os_host = RootServer()
+    os_host.init(GlobalConfig)
+    os_host.cleanup()
 elif cmd == 'config':
-    osHost = RootServer()
-    osHost.init(GlobalConfig)
-    osHost.printConfig()
+    os_host = RootServer()
+    os_host.init(GlobalConfig)
+    os_host.print_config()
     
     
 

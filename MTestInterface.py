@@ -16,37 +16,40 @@ from MTestNetworkObject import NetworkObject
 from MTestCLI import LinuxCLI
 
 class Interface(NetworkObject):
-    def __init__(self, name, nearHost):
-        super(Interface, self).__init__(name, nearHost.getCLI())
-        self._nearHost = nearHost
-        self._ipList = []
+    def __init__(self, name, near_host):
+        super(Interface, self).__init__(name, near_host.get_cli())
+        self.near_host = near_host
+        self.ip_list = []
 
     def setup(self):
-        self.getCLI().cmd('ip link add dev ' + self.getName())
-        for ip in self._ipList:
-            self.getCLI().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.getName())
+        self.get_cli().cmd('ip link add dev ' + self.get_name())
+        for ip in self.ip_list:
+            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.get_name())
 
     def cleanup(self):
-        self.getCLI().cmd('ip link del dev '  + self.getName())
+        self.get_cli().cmd('ip link del dev '  + self.get_name())
 
     def up(self):
-        self.getCLI().cmd('ip link set dev ' + self.getName() + ' up')
+        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' up')
 
     def down(self):
-        self.getCLI().cmd('ip link set dev ' + self.getName() + ' down')
+        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' down')
 
-    def addIPs(self, ipList):
-        self._ipList = ipList
+    def add_ips(self, ip_list):
+        self.ip_list = ip_list
 
-    def getIPs(self):
-        return self._ipList
+    def get_ips(self):
+        return self.ip_list
         
-    def addRoute(self, routeIP, gwIP):
-        self.getCLI().cmd('ip route add ' + routeIP[0] + '/' + routeIP[1] + ' via ' + gwIP[0])
+    def add_route(self, route_ip, gw_ip):
+        self.get_cli().cmd('ip route add ' + route_ip[0] + '/' + route_ip[1] + ' via ' + gw_ip[0])
 
-    def delRoute(self, routeIP):
-        self.getCLI().cmd('ip route del ' + routeIP[0] + '/' + routeIP[1])
+    def del_route(self, route_ip):
+        self.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
 
-    def getNearHost(self):
-        return self._nearHost
+    def get_near_host(self):
+        return self.near_host
+
+    def print_config(self, indent=0):
+        print ('    ' * indent) + self.name + ' with ips: ' + str(self.ip_list)
 

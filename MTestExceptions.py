@@ -14,25 +14,25 @@
 
 class HostNotFoundException(Exception):
     def __init__(self, host):
-        self._host = host
+        self.host = host
     def __str__(self):
-        return repr(self._host)
+        return repr(self.host)
 
 class HostAlreadyStartedException(Exception):
     def __init__(self, host):
-        self._host = host
+        self.host = host
     def __str__(self):
-        return repr(self._host)
+        return repr(self.host)
 
 class ObjectNotFoundException(Exception):
-    def __init__(self, objName):
-        self._objName = objName
+    def __init__(self, obj_name):
+        self.obj_name = obj_name
     def __str__(self):
-        return repr(self._objName)
+        return repr(self.obj_name)
 
 class ObjectAlreadyAddedException(Exception):
-    def __init__(self, objName):
-        self._objName = objName
+    def __init__(self, obj_name):
+        self.obj_name = obj_name
     def __str__(self):
-        return repr(self._objName)
+        return repr(self.obj_name)
 

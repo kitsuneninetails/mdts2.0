@@ -12,18 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class NetworkObject(object):
-    def __init__(self, name, cli):
-        super(NetworkObject, self).__init__()
-        self.name = name
-        self.cli = cli
-        self.create_state = False
+from MTestHost import Host
 
-    def get_name(self):
-        return self.name
-
-    def get_cli(self):
-        return self.cli
-
-    def print_config(self, indent=0):
-        pass
+class VMHost(Host):
+    def __init__(self, name, cli, host_create_func, host_remove_func):
+        super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func)
