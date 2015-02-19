@@ -24,6 +24,7 @@ from MTestBridge import Bridge
 from MTestInterface import Interface
 from MTestVirtualInterface import VirtualInterface
 
+
 GlobalConfig = {
     'bridges' :
     [
@@ -33,19 +34,19 @@ GlobalConfig = {
     [
         ( 'zoo1' , 'br0', [ ('10.0.0.2','24') ] ),
         ( 'zoo2' , 'br0', [ ('10.0.0.3','24') ] ),
-        ( 'zoo3' , 'br0', [ ('10.0.0.4','24') ] ),
+        ( 'zoo3' , 'br0', [ ('10.0.0.4','24') ] )
     ],
     'cassandra' :
     [
-        ( 'cass1' , 'br0', [ ('10.0.0.5','24') ] ),
-        ( 'cass2' , 'br0', [ ('10.0.0.6','24') ] ),
-        ( 'cass3' , 'br0', [ ('10.0.0.7','24') ] ), 
+        ( 'cass1' , 'br0', [ ('10.0.0.5','24') ], '56713727820156410577229101238628035242' ),
+        ( 'cass2' , 'br0', [ ('10.0.0.6','24') ], '113427455640312821154458202477256070484'),
+        ( 'cass3' , 'br0', [ ('10.0.0.7','24') ], '170141183460469231731687303715884105726')
     ],
     'compute' :
     [
         ( 'cmp1' , 'br0', [ ('10.0.0.8','24') ] ),
         ( 'cmp2' , 'br0', [ ('10.0.0.9','24') ] ),
-        ( 'cmp3' , 'br0', [ ('10.0.0.10','24') ] ), 
+        ( 'cmp3' , 'br0', [ ('10.0.0.10','24') ] ) 
     ],
     'routers' :
     [
@@ -70,27 +71,28 @@ GlobalConfig = {
 
 
 if len(sys.argv) < 2:
-    print 'Usage: python MTestEnvConfigure {boot|init|start|stop|config}'
+    print 'Usage: python MTestEnvConfigure {boot|init|start|stop|shutdown|config}'
     exit(-1)
 else:
     cmd = sys.argv[1]
 
+os_host = RootServer()
+os_host.init(GlobalConfig)
+
 if cmd == 'boot':
-    os_host = RootServer()
-    os_host.init(GlobalConfig)
     os_host.setup()
 if cmd == 'init':
-    os_host = RootServer()
-    os_host.init(GlobalConfig)
     os_host.prepareFiles()
+elif cmd == 'start':
+    os_host.start()
 elif cmd == 'stop':
-    os_host = RootServer()
-    os_host.init(GlobalConfig)
+    os_host.stop()
+elif cmd == 'shutdown':
     os_host.cleanup()
 elif cmd == 'config':
-    os_host = RootServer()
-    os_host.init(GlobalConfig)
     os_host.print_config()
+elif cmd == 'control':
+    os_host.control(*sys.argv[2:])
     
     
 

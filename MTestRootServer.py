@@ -31,6 +31,17 @@ class RootServer(Host):
         self.vlans = []
         self.routers = []
         self.hosts = {}
+        self.zookeeper_ips = []
+        self.cassandra_ips = []
+
+    def add_host(self, name, host):
+        self.hosts[name] = host
+        self.interfaces_for_host[name] = []
+        
+    def get_host(self, name):
+        if name not in self.hosts:
+            raise HostNotFoundException(name)
+        return self.hosts[name]
 
     def print_config(self, indent=0):
         print '[bridges]'
@@ -84,6 +95,12 @@ class RootServer(Host):
             iface = self.add_virt_interface('veth' + hname, 'eth0', h)
             iface.add_ips(host_cfg.get_ip_list())
             self.zookeeper_hosts.append(h)
+            if len(host_cfg.get_ip_list()) is not 0:
+                self.zookeeper_ips.append(host_cfg.get_ip_list()[0])
+                h.ip = host_cfg.get_ip_list()[0]
+
+        for i in self.zookeeper_hosts:
+            i.zookeeper_ips = self.zookeeper_ips
 
         for i in cfg_obj['cassandra']:
             host_cfg = HostConfig(i)
@@ -93,9 +110,17 @@ class RootServer(Host):
             self.add_host(hname, h)
           
             h.linked_bridge = host_cfg.linked_bridge
+            h.init_token = host_cfg.get_extra_data()[0]
+
             iface = self.add_virt_interface('veth' + hname, 'eth0', h)
             iface.add_ips(host_cfg.get_ip_list())
             self.cassandra_hosts.append(h)
+            if len(host_cfg.get_ip_list()) is not 0:
+                self.cassandra_ips.append(host_cfg.get_ip_list()[0])
+                h.ip = host_cfg.get_ip_list()[0]
+
+        for i in self.cassandra_hosts:
+            i.cassandra_ips = self.cassandra_ips
 
         for i in cfg_obj['compute']:
             host_cfg = HostConfig(i)
@@ -105,6 +130,9 @@ class RootServer(Host):
             self.add_host(hname, h)
            
             h.linked_bridge = host_cfg.linked_bridge
+            h.zookeeper_ips = self.zookeeper_ips
+            h.cassandra_ips = self.cassandra_ips
+
             iface = self.add_virt_interface('veth' + hname, 'eth0', h)
             iface.add_ips(host_cfg.get_ip_list())
             self.compute_hosts.append(h)
@@ -135,8 +163,9 @@ class RootServer(Host):
         for i in cfg_obj['vlans']:
             pass
 
-        n = NetworkHost('net-node', LinuxCLI(), lambda name: None, lambda name: None)
-        self.network_hosts.append(n)
+        net_host = NetworkHost('net-node', LinuxCLI(), lambda name: None, lambda name: None)
+        net_host.zookeeper_ips = self.zookeeper_ips
+        self.network_hosts.append(net_host)
 
     def setup(self):
         for b in self.bridges.values():
@@ -187,29 +216,100 @@ class RootServer(Host):
     def prepareFiles(self):
         for h in self.network_hosts:
             h.prepareFiles()
+
         for h in self.cassandra_hosts:
             h.prepareFiles()
+
+        #self.cli.cmd("find /var/log/cassandra -type f -exec self.cli. rm -f {} ;")
+
+        self.cli.rm('/etc/zookeeper.test')
+        self.cli.copy_dir('/etc/zookeeper', '/etc/zookeeper.test')
+            
+        for j in range(0,len(self.zookeeper_ips)):
+            self.cli.cmd('echo \"server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + \
+                         ':2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg"')
+
         for h in self.zookeeper_hosts:
             h.prepareFiles()
-
-        if self.cli.cmd('lsmod | grep openvswitch >/dev/null') == 1:
-            self.cli.cmd('sudo modprobe -r openvswitch')
-
-        self.cli.cmd('sudo modprobe openvswitch')
 
         for h in self.compute_hosts:
             h.prepareFiles()
         for r in self.routers: 
             r.prepareFiles()
 
-    def add_host(self, name, host):
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = []
+    def start(self):
+        for h in self.cassandra_hosts:
+            h.start()
+        for h in self.zookeeper_hosts:
+            h.start()
+        for h in self.network_hosts:
+            h.start()
+        for h in self.compute_hosts:
+            h.start()
+        for h in self.routers:
+            h.start()
+        for h in self.compute_hosts:
+            h.start_vms()
+        for vlan in self.vlans:
+            pass
+
+    def control(self, *args):
+
+        if len(args) < 3:
+            print 'Need at least 3 arguments to control command: <target> <id> <command> <optional_args>...'
+            print 'Only got ' + str(len(args))
+            exit(1)
+
+        control_target= args[0]
+        host_id = int(args[1])
+        control_command = args[2]
+        control_command_args = args[3:]
         
-    def get_host(self, name):
-        if name not in self.hosts:
-            raise HostNotFoundException(name)
-        return self.hosts[name]
+        if control_target == 'zookeeper':
+            print 'Control: ' + control_target + 'host: ' + str(host_id)
+            print len(self.zookeeper_hosts)
+            if len(self.zookeeper_hosts) >= host_id:
+                host = self.zookeeper_hosts[host_id-1]
+
+        if control_target == 'cassandra':
+            print 'Control: ' + control_target + 'host: ' + str(host_id)
+            print len(self.cassandra_hosts)
+            if len(self.cassandra_hosts) >= host_id:
+                host = self.cassandra_hosts[host_id-1]
+
+        if control_target == 'compute':
+            print 'Control: ' + control_target + 'host: ' + str(host_id)
+            print len(self.compute_hosts)
+            if len(self.compute_hosts) >= host_id:
+                host = self.compute_hosts[host_id-1]
+
+        if control_target == 'router':
+            print 'Control: ' + control_target + 'host: ' + str(host_id)
+            print len(self.routers)
+            if len(self.routers) >= host_id:
+                host = self.routers[host_id-1]
+
+        if control_command == 'start':
+            host.control_start(control_command_args)
+
+        if control_command == 'stop':
+            host.control_stop(control_command_args)
+
+    def stop(self):
+        for h in self.network_hosts:
+            h.stop()
+        for h in self.compute_hosts:
+            h.stop_vms()
+        for h in self.routers:
+            h.stop()
+        for h in self.compute_hosts:
+            h.stop()
+        for h in self.cassandra_hosts:
+            h.stop()
+        for h in self.zookeeper_hosts:
+            h.stop()
+        for vlan in self.vlans:
+            pass
 
 class ConfigObjectBase(object):
     def __init__(self, name):
@@ -238,9 +338,13 @@ class HostConfig(IPListConfig):
     def __init__(self, name_ip_tuple):
         super(HostConfig, self).__init__(name_ip_tuple[0], name_ip_tuple[2])
         self.linked_bridge = name_ip_tuple[1]
+        self.extra_data = name_ip_tuple[3:]
 
     def get_linked_bridge(self):
         return self.linked_bridge
+
+    def get_extra_data(self):
+        return self.extra_data
 
 class InterfaceConfig(IPListConfig):
     def __init__(self, iface_tuple):

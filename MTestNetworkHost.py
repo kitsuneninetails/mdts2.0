@@ -17,11 +17,22 @@ from MTestHost import Host
 class NetworkHost(Host):
     def __init__(self, name, cli, host_create_func, host_remove_func):
         super(NetworkHost, self).__init__(name, cli, host_create_func, host_remove_func)
+        self.zookeeper_ips = []
+
+    def print_config(self, indent=0):
+        super(NetworkHost, self).print_config(indent)
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
 
     def prepareFiles(self):
+
+        if len(self.zookeeper_ips) is not 0:
+            ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
+        else :
+            ip_str = ''
+
         self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml', 
-                            ('s/\(127.0.0.1:2181\|$ZOOKEEPER1_IP:2181[^<]*\)/$ZOOKEEPER1_IP:2181,'
-                            '$ZOOKEEPER2_IP:2181,$ZOOKEEPER3_IP:2181/'))
+                            's/\(127.0.0.1:2181\|' + str(self.zookeeper_ips[0][0]) + \
+                            ':2181[^<]*\)/' + ip_str + '/')
 
         if self.cli.grep_file('zookeeper-curator_enabled', '/usr/share/midonet-api/WEB-INF/web.xml'):
             self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml',
@@ -49,3 +60,9 @@ class NetworkHost(Host):
             self.cli.regex_file('/var/www/midonet-cp/config.js',
                                 ('s%https://example.com/midonet-api%http://$public:8080/midonet-api%'
                                 'g;s/example.com/$public:8443/g'))
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass

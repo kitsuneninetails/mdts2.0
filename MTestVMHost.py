@@ -17,3 +17,9 @@ from MTestHost import Host
 class VMHost(Host):
     def __init__(self, name, cli, host_create_func, host_remove_func):
         super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func)
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass

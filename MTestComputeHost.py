@@ -24,9 +24,8 @@ class ComputeHost(Host):
         self.vms = []
         self.num_id = str(ComputeHost.global_id)
         ComputeHost.global_id += 1
-
-    def prepareFiles(self):
-        pass
+        self.zookeeper_ips = []
+        self.cassandra_ips = []
 
     def create_vm(self, name):
         new_host = VMHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
@@ -45,7 +44,10 @@ class ComputeHost(Host):
 
     def print_config(self, indent=0):
         super(ComputeHost, self).print_config(indent)
-        print ('    ' * (indent + 1)) + 'Num ID [' + self.num_id + '], Hosting vms: '
+        print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + str(self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Hosted vms: '
         for vm in self.vms:
             vm.print_config(indent + 2)
             print ('    ' * (indent + 4)) + 'Interfaces:' 
@@ -65,19 +67,28 @@ class ComputeHost(Host):
 # generated for MMM MM $n
 host_uuid=00000000-0000-0000-0000-00000000000$n
 """
-        huidfile = open(etc_dir + "/host_uuid.properties", "w+")
-        print >>huidfile, host_uuid
+        print """huidfile = open(etc_dir + "/host_uuid.properties", "w+")
+        print >>huidfile, host_uuid"""
 
         mmconf = etc_dir + '/midolman.conf'
 
-        self.cli.regex_file(mmconf,
-                            ('/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = '
-                             '$ZOOKEEPER1_IP:2181,$ZOOKEEPER2_IP:2181,$ZOOKEEPER3_IP:2181/'))
+        if len(self.zookeeper_ips) is not 0:
+            z_ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
+        else :
+            z_ip_str = ''
+
+        if len(self.cassandra_ips) is not 0:
+            c_ip_str = ''.join([str(ip[0]) + ',' for ip in self.cassandra_ips])[:-1]
+        else :
+            c_ip_str = ''
 
         self.cli.regex_file(mmconf,
-                            ('/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = $CASSANDRA1_IP,$C'
-                            'ASSANDRA2_IP,$CASSANDRA3_IP/;s/^replication_factor =.*$/replicatio'
-                             'n_factor = 3/'))
+                            '/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = ' + \
+                             z_ip_str + '/')
+
+        self.cli.regex_file(mmconf,
+                            '/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = ' + \
+                             c_ip_str + '/;s/^replication_factor =.*$/replication_factor = 3/')
 
         self.cli.regex_file(mmconf,
                             ('/^\[midolman\]/,/^\[/ s%^[# ]*bgpd_binary = /usr/lib/quagga.*$%bg'
@@ -89,10 +100,10 @@ host_uuid=00000000-0000-0000-0000-00000000000$n
 [haproxy_health_monitor]
 namespace_cleanup = true
 health_monitor_enable = true
-haproxy_file_loc = /etc/midolman.$i/l4lb/
-"""
-            mmcfgfile = open(mmconf, "a+")
-            print >>mmcfgfile, hmoncfg
+haproxy_file_loc = """ + etc_dir + '/l4lb/'
+
+            print """mmcfgfile = open(mmconf, "a+")
+            print >>mmcfgfile, """ +  hmoncfg
             
         lb = etc_dir + '/logback.xml'
 
@@ -106,7 +117,7 @@ haproxy_file_loc = /etc/midolman.$i/l4lb/
         self.cli.rm(var_log_dir)
         self.cli.cmd('mkdir -p ' + var_log_dir)
 
-        mmenv = etcDir + '/midolman-env.sh'
+        mmenv = etc_dir + '/midolman-env.sh'
 
 	# Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
         self.cli.regex_file(mmenv, '/runjdwp/s/^..//g')
@@ -116,3 +127,36 @@ haproxy_file_loc = /etc/midolman.$i/l4lb/
 	# https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
         self.cli.regex_file(mmenv, 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/')
         self.cli.regex_file(mmenv, 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/')
+
+    def start(self):
+        if self.num_id == '1':
+            self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8')
+       
+        self.cli.start_screen_unshare('compute', self.name, 'python ./MTestEnvConfigure control compute '+ self.num_id + ' start')
+
+    def stop(self):
+        pass
+
+    def mount_shares(self):
+        self.cli.mount('/run.' + self.num_id, '/run')
+        self.cli.mount('/var/lib/midolman.' + self.num_id, '/var/lib/midolman')
+        self.cli.mount('/var/log/midolman.' + self.num_id, '/var/log/midolman')
+        self.cli.mount('/etc/midolman.' + self.num_id, '/etc/midolman')
+
+    def control_start(self, *args):
+        self.mount_shares()
+
+        self.cli.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
+        self.cli.cmd('exec /usr/share/midolman/midolman-start')
+
+    def control_stop(self, *args):
+        pass
+
+    def start_vms(self):
+        for host in self.vms:
+            host.start()
+
+    def stop_vms(self):
+        for host in self.vms:
+            host.stop()
+
