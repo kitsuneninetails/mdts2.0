@@ -15,7 +15,7 @@
 import os
 import subprocess
 
-DEBUG=True
+DEBUG=False
 
 CREATENSCMD = lambda name: LinuxCLI().cmd('ip netns add ' + name)
 REMOVENSCMD = lambda name: LinuxCLI().cmd('ip netns del ' + name)
@@ -24,21 +24,23 @@ class LinuxCLI(object):
     def cmd(self, cmd_line, dbg = DEBUG):
         if dbg is True:
             cmd = "echo '" + self.create_cmd(cmd_line) + "'"
+            return 0
         else:
             cmd = self.create_cmd(cmd_line)
-        return subprocess.call(cmd, shell=True)
+            print '>>> ' + cmd
+            return subprocess.call(cmd, shell=True)
 
     def create_cmd(self, cmd_line):
         return 'sudo ' + cmd_line
         
     def grep_file(self, file, grep):
-        if self.cmd('grep -q ' + grep + ' ' + file) is 0:
+        if self.cmd('grep -q ' + grep + ' ' + file) == 0:
             return True
         else:
             return False
 
     def grep_cmd(self, cmd_line, grep):
-        if self.cmd(cmd_line + '| grep -q ' + grep) is 0:
+        if self.cmd(cmd_line + '| grep -q ' + grep) == 0:
             return True
         else:
             return False
@@ -47,14 +49,24 @@ class LinuxCLI(object):
         self.cmd('sed -e "' + regex + '" -i ' + file)
 
     def regex_file_multi(self, file, *args):
-        sed_str = ''.join(['-e "' + str(i) + '"' for i in args])
-        self.cmd('sed ' + sed_str + '" -i ' + file)
+        sed_str = ''.join(['-e "' + str(i) + '" ' for i in args])
+        self.cmd('sed ' + sed_str + ' -i ' + file)
 
     def copy_dir(self, old_dir, new_dir):
         self.cmd('cp -RL --preserve=all ' + old_dir + ' ' + new_dir)
 
     def copy_file(self, old_file, new_file):
         self.cmd('cp ' + old_file + ' ' + new_file)
+
+    def write_to_file(self, file, data, append=False):
+        mode = 'w'
+        if append is True:
+            self.copy_file(file, "./.tmp.file")
+            mode = 'a'
+        file_ptr = open("./.tmp.file", mode)
+        file_ptr.write(data)
+        file_ptr.close()
+        self.copy_file('./.tmp.file', file)
 
     def rm(self, old_file):
         self.cmd('rm -rf ' + old_file)

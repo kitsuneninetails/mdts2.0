@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from MTestHost import Host
+from MTestCLI import LinuxCLI
 
 class ZookeeperHost(Host):
     global_id = 1
@@ -35,22 +36,21 @@ class ZookeeperHost(Host):
         var_log_dir = '/var/log/zookeeper.' + self.num_id
         var_run_dir = '/run.' + self.num_id + '/zookeeper'
 
-        self.cli.rm(var_lib_dir)
-        self.cli.cmd('mkdir -p ' + var_lib_dir + '/data')
-        self.cli.cmd('echo \"' + self.num_id + '\" >' + var_lib_dir + '/data/myid')
-        self.cli.cmd('echo \"' + self.num_id + '\" >' + var_lib_dir + '/myid')
-        self.cli.cmd('chown -R zookeeper.zookeeper ' + var_lib_dir)
+        LinuxCLI().rm(var_lib_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_lib_dir + '/data')
+        LinuxCLI().write_to_file(var_lib_dir + '/data/myid', self.num_id, False)
+        LinuxCLI().write_to_file(var_lib_dir + '/myid', self.num_id, False)
+        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_lib_dir)
 
-        self.cli.rm(var_log_dir)
-        self.cli.cmd('mkdir -p ' + var_log_dir)
-        self.cli.cmd('chown -R zookeeper.zookeeper ' + var_log_dir)
+        LinuxCLI().rm(var_log_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_log_dir)
+        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_log_dir)
 
-        self.cli.rm(var_run_dir)
-        self.cli.cmd('mkdir -p ' + var_run_dir)
-        self.cli.cmd('chown -R zookeeper.zookeeper ' + var_run_dir)
+        LinuxCLI().rm(var_run_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_run_dir)
+        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_run_dir)
 
     def start(self):
-        #self.cli.start_screen_unshare('zookeeper', self.name, 'python ./MTestEnvConfigure control zookeeper '+ self.num_id + ' start')
         self.cli.cmd_unshare('python ./MTestEnvConfigure control zookeeper '+ self.num_id + ' start')
 
         # Checking Zookeeper status

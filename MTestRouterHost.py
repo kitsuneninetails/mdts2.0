@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from MTestHost import Host
+from MTestCLI import LinuxCLI
 
 class RouterHost(Host):
     global_id = 0
@@ -28,29 +29,29 @@ class RouterHost(Host):
         var_log_dir = '/var/log/quagga.' + self.num_id
         var_run_dir = '/run.' + self.num_id + '/quagga'
 
-        if not self.cli.exists(etc_dir):
-            self.cli.cmd('mkdir -p ' + etc_dir)
+        if not LinuxCLI().exists(etc_dir):
+            LinuxCLI().cmd('mkdir -p ' + etc_dir)
 
-        if not self.cli.exists(var_lib_dir):
-            self.cli.cmd('mkdir -p ' + var_lib_dir)
-            self.cli.cmd('chown -R quagga.quagga ' + var_lib_dir)
+        if not LinuxCLI().exists(var_lib_dir):
+            LinuxCLI().cmd('mkdir -p ' + var_lib_dir)
+            LinuxCLI().cmd('chown -R quagga.quagga ' + var_lib_dir)
 
-        if not self.cli.exists(var_log_dir):
-            self.cli.cmd('mkdir -p ' + var_log_dir)
-            self.cli.cmd('chown -R quagga.quagga ' + var_log_dir)
+        if not LinuxCLI().exists(var_log_dir):
+            LinuxCLI().cmd('mkdir -p ' + var_log_dir)
+            LinuxCLI().cmd('chown -R quagga.quagga ' + var_log_dir)
 
-        if not self.cli.exists(var_run_dir):
-            self.cli.cmd('mkdir -p ' + var_run_dir)
-            self.cli.cmd('chown -R quagga.quagga ' + var_run_dir)
+        if not LinuxCLI().exists(var_run_dir):
+            LinuxCLI().cmd('mkdir -p ' + var_run_dir)
+            LinuxCLI().cmd('chown -R quagga.quagga ' + var_run_dir)
 
         if self.num_id is '0':
-            self.cli.copy_dir('scripts/quagga.0', etc_dir)
+            LinuxCLI().copy_dir('scripts/quagga.0', etc_dir)
         else:
             mmconf_file = etc_dir + '/midolman.conf'
-            self.cli.copy_dir('scripts/quagga.1+', etc_dir)
-            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/')
-            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/')
-            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/')
+            LinuxCLI().copy_dir('scripts/quagga.1+', etc_dir)
+            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/')
+            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/')
+            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/')
 
     def print_config(self, indent=0):
         super(RouterHost, self).print_config(indent)

@@ -220,14 +220,12 @@ class RootServer(Host):
         for h in self.cassandra_hosts:
             h.prepareFiles()
 
-        #self.cli.cmd("find /var/log/cassandra -type f -exec self.cli. rm -f {} ;")
-
-        self.cli.rm('/etc/zookeeper.test')
-        self.cli.copy_dir('/etc/zookeeper', '/etc/zookeeper.test')
+        LinuxCLI().rm('/etc/zookeeper.test')
+        LinuxCLI().copy_dir('/etc/zookeeper', '/etc/zookeeper.test')
             
         for j in range(0,len(self.zookeeper_ips)):
-            self.cli.cmd('echo \"server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + \
-                         ':2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg"')
+            LinuxCLI().cmd('echo \"server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + \
+                           ':2888:3888\" >>/etc/zookeeper.test/conf/zoo.cfg')
 
         for h in self.zookeeper_hosts:
             h.prepareFiles()

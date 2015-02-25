@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from MTestHost import Host
+from MTestCLI import LinuxCLI
 import time
 
 class CassandraHost(Host):
@@ -43,34 +44,33 @@ class CassandraHost(Host):
         var_log_dir = '/var/log/cassandra.' + self.num_id
         var_run_dir = '/run.' + self.num_id
         
-        self.cli.rm(etc_dir)
-        self.cli.copy_dir('/etc/cassandra', etc_dir)
+        LinuxCLI().rm(etc_dir)
+        LinuxCLI().copy_dir('/etc/cassandra', etc_dir)
 	# Work around for https://issues.apache.org/jira/browse/CASSANDRA-5895
-	self.cli.regex_file(etc_dir + '/cassandra-env.sh',
+	LinuxCLI().regex_file(etc_dir + '/cassandra-env.sh',
                             's/-Xss[1-9][0-9]*k/-Xss228k/')
 
-	self.cli.regex_file_multi(etc_dir + '/cassandra.yaml',
+	LinuxCLI().regex_file_multi(etc_dir + '/cassandra.yaml',
                                   "s/^cluster_name:.*$/cluster_name: 'midonet'/",
                                   's/^initial_token:.*$/initial_token: ' + self.init_token + '/',
                                   "/^seed_provider:/,/^$/ s/seeds:.*$/seeds: '" + seed_str + "'/",
                                   's/^listen_address:.*$/listen_address: ' + self.ip[0] + '/',
                                   's/^rpc_address:.*$/rpc_address: ' + self.ip[0] + '/')
 
-        self.cli.rm(var_lib_dir)
-        self.cli.cmd('mkdir -p ' + var_lib_dir)
-        self.cli.cmd('chown -R cassandra.cassandra ' + var_lib_dir)
+        LinuxCLI().rm(var_lib_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_lib_dir)
+        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_lib_dir)
 
-        self.cli.rm(var_log_dir)
-        self.cli.cmd('mkdir -p ' + var_log_dir)
-        self.cli.cmd('chown -R cassandra.cassandra ' + var_log_dir)
+        LinuxCLI().rm(var_log_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_log_dir)
+        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_log_dir)
 
-        self.cli.rm(var_run_dir)
-        self.cli.cmd('mkdir -p ' + var_run_dir)
-        self.cli.cmd('chown -R cassandra.cassandra ' + var_run_dir)
+        LinuxCLI().rm(var_run_dir)
+        LinuxCLI().cmd('mkdir -p ' + var_run_dir)
+        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_run_dir)
 
 
     def start(self):
-        #self.cli.start_screen_unshare('cassandra', self.name, 'python ./MTestEnvConfigure control cassandra '+ self.num_id + ' start')
         self.cli.cmd_unshare('python ./MTestEnvConfigure control cassandra '+ self.num_id + ' start')
 
         # Checking Cassandra status
