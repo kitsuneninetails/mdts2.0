@@ -14,7 +14,7 @@
 
 from MTestHost import Host
 from MTestVMHost import VMHost
-from MTestCLI import LinuxCLI, NetNSCLI, CREATENSCMD, REMOVENSCMD
+from MTestCLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
 
 class ComputeHost(Host):
     global_id = 1
@@ -58,14 +58,15 @@ class ComputeHost(Host):
         etc_dir = '/etc/midolman.' + self.num_id
         var_lib_dir = '/var/lib/midolman.' + self.num_id
         var_log_dir = '/var/lib/midolman.' + self.num_id
+        var_run_dir = '/run/midolman.' + self.num_id
 
-        LinuxCLI().rm(etc_dir)
-        LinuxCLI().copy_dir('/etc/midolman', etc_dir)
+        self.cli.rm(etc_dir)
+        self.cli.copy_dir('/etc/midolman', etc_dir)
 
 	# generates host uuid
         host_uuid = ('# generated for MMM MM $n\n'
                      'host_uuid=00000000-0000-0000-0000-00000000000$n')
-        LinuxCLI().write_to_file(etc_dir + '/host_uuid.properties', host_uuid, False)
+        self.cli.write_to_file(etc_dir + '/host_uuid.properties', host_uuid, False)
 
         mmconf = etc_dir + '/midolman.conf'
 
@@ -79,73 +80,85 @@ class ComputeHost(Host):
         else :
             c_ip_str = ''
 
-        LinuxCLI().regex_file(mmconf,
+        self.cli.regex_file(mmconf,
                             '/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = ' + \
                              z_ip_str + '/')
 
-        LinuxCLI().regex_file(mmconf,
+        self.cli.regex_file(mmconf,
                             '/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = ' + \
                              c_ip_str + '/;s/^replication_factor =.*$/replication_factor = 3/')
 
-        LinuxCLI().regex_file(mmconf,
+        self.cli.regex_file(mmconf,
                             ('/^\[midolman\]/,/^\[/ s%^[# ]*bgpd_binary = /usr/lib/quagga.*$%bg'
                              'pd_binary = /usr/lib/quagga%'))
 
-	if not LinuxCLI().grep_file(mmconf, '\[haproxy_health_monitor\]'):
+	if not self.cli.grep_file(mmconf, '\[haproxy_health_monitor\]'):
             hmoncfg = ('# Enable haproxy on the node.\n'
                        '[haproxy_health_monitor]\n'
                        'namespace_cleanup = true\n'
                        'health_monitor_enable = true\n'
                        'haproxy_file_loc =')  + etc_dir + '/l4lb/\n'
-            LinuxCLI().write_to_file(mmconf, hmoncfg, True)
+            self.cli.write_to_file(mmconf, hmoncfg, True)
 
         lb = etc_dir + '/logback.xml'
 
-        LinuxCLI().regex_file(lb, 's/root level="INFO"/root level="DEBUG"/')
-        LinuxCLI().regex_file(lb, '/<rollingPolicy/, /<\/rollingPolicy/d')
-        LinuxCLI().regex_file(lb, 's/rolling.RollingFileAppender/FileAppender/g')
+        self.cli.regex_file(lb, 's/root level="INFO"/root level="DEBUG"/')
+        self.cli.regex_file(lb, '/<rollingPolicy/, /<\/rollingPolicy/d')
+        self.cli.regex_file(lb, 's/rolling.RollingFileAppender/FileAppender/g')
 
-        LinuxCLI().rm(var_lib_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_lib_dir)
+        self.cli.rm(var_lib_dir)
+        self.cli.mkdir(var_lib_dir)
 
-        LinuxCLI().rm(var_log_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_log_dir)
+        self.cli.rm(var_log_dir)
+        self.cli.mkdir(var_log_dir)
+
+        self.cli.mkdir('/run/midolman')
+        self.cli.rm(var_run_dir)
+        self.cli.mkdir(var_run_dir)
 
         mmenv = etc_dir + '/midolman-env.sh'
 
 	# Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
-        LinuxCLI().regex_file(mmenv, '/runjdwp/s/^..//g')
-        LinuxCLI().regex_file(mmenv, '/runjdwp/s/1414/141' + self.num_id + '/g')
+        self.cli.regex_file(mmenv, '/runjdwp/s/^..//g')
+        self.cli.regex_file(mmenv, '/runjdwp/s/1414/141' + self.num_id + '/g')
 
 	# Setting memory to the ones before
 	# https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
-        LinuxCLI().regex_file(mmenv, 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/')
-        LinuxCLI().regex_file(mmenv, 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/')
+        self.cli.regex_file(mmenv, 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/')
+        self.cli.regex_file(mmenv, 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/')
 
     def start(self):
         if self.num_id == '1':
             self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8')
        
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control compute '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control compute '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' stop')
 
     def mount_shares(self):
-        self.cli.mount('/run.' + self.num_id, '/run')
+        self.cli.mount('/run/midolman.' + self.num_id, '/run/midolman')
         self.cli.mount('/var/lib/midolman.' + self.num_id, '/var/lib/midolman')
         self.cli.mount('/var/log/midolman.' + self.num_id, '/var/log/midolman')
         self.cli.mount('/etc/midolman.' + self.num_id, '/etc/midolman')
 
-    def control_start(self, *args):
-        self.mount_shares()
+    def unmount_shares(self):
+        self.cli.unmount('/run/midolman.' + self.num_id)
+        self.cli.unmount('/var/lib/midolman')
+        self.cli.unmount('/var/log/midolman')
+        self.cli.unmount('/etc/midolman')
 
+    def control_start(self, *args):
         self.cli.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        self.cli.cmd('start midolman')
+        pid = self.cli.cmd('/usr/share/midolman/midolman-start & echo $! &', return_output = True)
+        print "MMPID=" + str(pid)
+        if (pid == -1):
+            raise SubprocessFailedException('midolman')
+        self.cli.write_to_file('/run/midolman/pid', pid)
 
     def control_stop(self, *args):
-        self.mount_shares()
-        self.cli.cmd('stop midolman')
+        pid = self.cli.read_from_file('/run/midolman/pid')
+        self.cli.cmd('kill ' + str(pid))
 
     def start_vms(self):
         for host in self.vms:

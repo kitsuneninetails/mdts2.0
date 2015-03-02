@@ -99,3 +99,21 @@ class Host(NetworkObject):
 
     def print_config(self, indent=0):
         print ('    ' * indent) + self.name + ' linked on bridge: ' + self.linked_bridge
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def control_start(self, *args):
+        pass
+
+    def control_stop(self, *args):
+        pass
+
+    def mount_shares(self):
+        pass
+
+    def unmount_shared(self):
+        pass

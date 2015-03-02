@@ -36,3 +36,26 @@ class ObjectAlreadyAddedException(Exception):
     def __str__(self):
         return repr(self.obj_name)
 
+class ArgMismatchException(Exception): 
+    def __init__(self, arg):
+        self.arg = arg
+    def __str__(self):
+        return repr(self.arg)
+
+class SubprocessFailedException(Exception):
+    def __init__(self, process_name):
+        self.process_name = process_name
+    def __str__(self):
+        return repr(self.process_name)
+
+class ExitCleanException(Exception):
+    def __init__(self):
+        pass
+    def __str__(self):
+        return ''
+
+class SocketException(Exception):    
+    def __init__(self, info):
+        self.info = info
+    def __str__(self):
+        return repr(self.info)

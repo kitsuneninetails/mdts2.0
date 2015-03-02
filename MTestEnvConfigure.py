@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -69,30 +70,38 @@ GlobalConfig = {
 
 #VM_GW_IP=172.16.0.240
 
+try:
 
-if len(sys.argv) < 2:
-    print 'Usage: python MTestEnvConfigure {boot|init|start|stop|shutdown|config}'
-    exit(-1)
-else:
-    cmd = sys.argv[1]
-
-os_host = RootServer()
-os_host.init(GlobalConfig)
-
-if cmd == 'boot':
-    os_host.setup()
-if cmd == 'init':
-    os_host.prepareFiles()
-elif cmd == 'start':
-    os_host.start()
-elif cmd == 'stop':
-    os_host.stop()
-elif cmd == 'shutdown':
-    os_host.cleanup()
-elif cmd == 'config':
-    os_host.print_config()
-elif cmd == 'control':
-    os_host.control(*sys.argv[2:])
+    if len(sys.argv) < 2:
+        print 'Usage: python MTestEnvConfigure {boot|init|start|stop|shutdown|config} [options]'
+        raise ExitCleanException()
+    else:
+        cmd = sys.argv[1]
+        
+        os_host = RootServer()
+        os_host.init(GlobalConfig)
+        
+        if cmd == 'boot':
+            os_host.setup()
+        elif cmd == 'init':
+            os_host.prepareFiles()
+        elif cmd == 'start':
+            os_host.start()
+        elif cmd == 'stop':
+            os_host.stop()
+        elif cmd == 'shutdown':
+            os_host.cleanup()
+        elif cmd == 'config':
+            os_host.print_config()
+        elif cmd == 'control':
+            os_host.control(*sys.argv[2:])
+        else:
+            raise ArgMismatchException('{boot|init|start|stop|shutdown|config}', ' '.join(sys.argv[1:]))
+   
+except ExitCleanException:
+    exit(1)
+except ArgMismatchException:
+    exit(2)
+except ObjectNotFoundException:
+    exit(2)
     
-    
-

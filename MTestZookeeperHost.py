@@ -12,8 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from MTestExceptions import *
 from MTestHost import Host
-from MTestCLI import LinuxCLI
+import time, socket
 
 class ZookeeperHost(Host):
     global_id = 1
@@ -24,6 +25,7 @@ class ZookeeperHost(Host):
         self.num_id = str(ZookeeperHost.global_id)
         ZookeeperHost.global_id += 1
         self.ip = ()
+        self.pid = 0
 
     def print_config(self, indent=0):
         super(ZookeeperHost, self).print_config(indent)
@@ -32,55 +34,93 @@ class ZookeeperHost(Host):
         print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
 
     def prepareFiles(self):
+        if self.num_id == '1':
+            etc_dir = '/etc/zookeeper.test'
+            self.cli.rm(etc_dir)
+            self.cli.copy_dir('/etc/zookeeper', etc_dir)
+            
+            write_string = ''
+            for j in range(0,len(self.zookeeper_ips)):
+                write_string = write_string + 'server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
+
+            print 'write_str=' + write_string
+            self.cli.write_to_file(etc_dir + '/conf/zoo.cfg', write_string, append=True)
+
         var_lib_dir = '/var/lib/zookeeper.' + self.num_id
         var_log_dir = '/var/log/zookeeper.' + self.num_id
-        var_run_dir = '/run.' + self.num_id + '/zookeeper'
+        var_run_dir = '/run/zookeeper.' + self.num_id
 
-        LinuxCLI().rm(var_lib_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_lib_dir + '/data')
-        LinuxCLI().write_to_file(var_lib_dir + '/data/myid', self.num_id, False)
-        LinuxCLI().write_to_file(var_lib_dir + '/myid', self.num_id, False)
-        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_lib_dir)
+        self.cli.rm(var_lib_dir)
+        self.cli.mkdir(var_lib_dir + '/data')
+        self.cli.write_to_file(var_lib_dir + '/data/myid', self.num_id, False)
+        self.cli.write_to_file(var_lib_dir + '/myid', self.num_id, False)
+        self.cli.chown(var_lib_dir, 'zookeeper', 'zookeeper')
 
-        LinuxCLI().rm(var_log_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_log_dir)
-        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_log_dir)
+        self.cli.rm(var_log_dir)
+        self.cli.mkdir(var_log_dir)
+        self.cli.chown(var_log_dir, 'zookeeper', 'zookeeper')
 
-        LinuxCLI().rm(var_run_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_run_dir)
-        LinuxCLI().cmd('chown -R zookeeper.zookeeper ' + var_run_dir)
+        self.cli.mkdir('/run/zookeeper')
+        self.cli.rm(var_run_dir)
+        self.cli.mkdir(var_run_dir)
+        self.cli.chown(var_run_dir, 'zookeeper', 'zookeeper')
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control zookeeper '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper '+ self.num_id + ' start')
 
         # Checking Zookeeper status
         retries = 0
-        max_retries = 1
-        while not self.cli.grep_cmd('echo ruok | nc ' + self.ip[0] + ' 2181', 'imok'):
-            retries += 1
-            if retries > max_retries:
-                print 'Zookeeper host ' + self.num_id + ' timed out while starting'
-                return
-            time.sleep(5)
+        max_retries = 2
+        connected = False
+        while connected is False:
+            ping_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                ping_socket.connect((self.ip[0], 2181))
+                ping_socket.send('ruok')
+                if ping_socket.recv(16) == 'imok': 
+                    connected = True
+                else:
+                    retries += 1
+                    if retries > max_retries:
+                        raise SocketException('Zookeeper host ' + self.num_id + ' timed out while starting')
+                        time.sleep(2)
+            except SocketException:
+                raise
+            except:
+                pass
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control zookeeper '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper '+ self.num_id + ' stop')
 
     def mount_shares(self):
-        self.cli.mount('/run.' + self.num_id, '/run')
+        self.cli.mount('/run/zookeeper.' + self.num_id, '/run/zookeeper')
         self.cli.mount('/var/lib/zookeeper.' + self.num_id, '/var/lib/zookeeper')
         self.cli.mount('/var/log/zookeeper.' + self.num_id, '/var/log/zookeeper')
-        self.cli.mount('/etc/zookeeper.' + self.num_id, '/etc/zookeeper')
+        self.cli.mount('/etc/zookeeper.test', '/etc/zookeeper')
+
+    def unmount_shares(self):
+        self.cli.unmount('/run/zookeeper')
+        self.cli.unmount('/var/lib/zookeeper')
+        self.cli.unmount('/var/log/zookeeper')
+        self.cli.unmount('/etc/zookeeper')
 
     def control_start(self, *args):
-        self.mount_shares()
-
-        self.cli.cmd("find /var/log/zookeeper -type f -exec sudo rm -f {} \; || true")
-        self.cli.cmd("/etc/init.d/zookeeper start")
+        self.cli.rm_files('/var/log/zookeeper')
+        pid = self.cli.cmd(('/usr/bin/java'
+                            ' -cp /etc/zookeeper/conf:/usr/share/java/jline.jar:/usr/share/java/log4j-1.2.jar:'
+                            '/usr/share/java/xercesImpl.jar:/usr/share/java/xmlParserAPIs.jar:/usr/share/java/netty.jar:'
+                            '/usr/share/java/slf4j-api.jar:/usr/share/java/slf4j-log4j12.jar:/usr/share/java/zookeeper.jar'
+                            ' -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false'
+                            ' -Dzookeeper.log.dir=/var/log/zookeeper -Dzookeeper.root.logger=INFO,ROLLINGFILE'
+                            ' org.apache.zookeeper.server.quorum.QuorumPeerMain /etc/zookeeper/conf/zoo.cfg & echo $! &'), \
+                           return_output = True)
+        print "ZKPID=" + str(pid)
+        if (pid == -1):
+            raise SubprocessFailedException('java-zookeeper')
+        self.cli.write_to_file('/run/zookeeper/pid', pid)
 
     def control_stop(self, *args):
-        self.mount_shares()
-
-        self.cli.cmd("/etc/init.d/zookeeper stop")
+        pid = self.cli.read_from_file('/run/zookeeper/pid')
+        self.cli.cmd('kill ' + str(pid))
 
 

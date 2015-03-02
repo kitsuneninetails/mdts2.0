@@ -13,7 +13,6 @@
 # limitations under the License.
 
 from MTestHost import Host
-from MTestCLI import LinuxCLI
 import time
 
 class CassandraHost(Host):
@@ -42,64 +41,68 @@ class CassandraHost(Host):
         etc_dir = '/etc/cassandra.' + self.num_id
         var_lib_dir = '/var/lib/cassandra.' + self.num_id
         var_log_dir = '/var/log/cassandra.' + self.num_id
-        var_run_dir = '/run.' + self.num_id
+        var_run_dir = '/run/cassandra.' + self.num_id
         
-        LinuxCLI().rm(etc_dir)
-        LinuxCLI().copy_dir('/etc/cassandra', etc_dir)
+        self.cli.rm(etc_dir)
+        self.cli.copy_dir('/etc/cassandra', etc_dir)
 	# Work around for https://issues.apache.org/jira/browse/CASSANDRA-5895
-	LinuxCLI().regex_file(etc_dir + '/cassandra-env.sh',
+	self.cli.regex_file(etc_dir + '/cassandra-env.sh',
                             's/-Xss[1-9][0-9]*k/-Xss228k/')
 
-	LinuxCLI().regex_file_multi(etc_dir + '/cassandra.yaml',
+	self.cli.regex_file_multi(etc_dir + '/cassandra.yaml',
                                   "s/^cluster_name:.*$/cluster_name: 'midonet'/",
                                   's/^initial_token:.*$/initial_token: ' + self.init_token + '/',
                                   "/^seed_provider:/,/^$/ s/seeds:.*$/seeds: '" + seed_str + "'/",
                                   's/^listen_address:.*$/listen_address: ' + self.ip[0] + '/',
                                   's/^rpc_address:.*$/rpc_address: ' + self.ip[0] + '/')
 
-        LinuxCLI().rm(var_lib_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_lib_dir)
-        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_lib_dir)
+        self.cli.rm(var_lib_dir)
+        self.cli.mkdir(var_lib_dir)
+        self.cli.chown(var_lib_dir, 'cassandra', 'cassandra')
 
-        LinuxCLI().rm(var_log_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_log_dir)
-        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_log_dir)
+        self.cli.rm(var_log_dir)
+        self.cli.mkdir(var_log_dir)
+        self.cli.chown(var_log_dir, 'cassandra', 'cassandra')
 
-        LinuxCLI().rm(var_run_dir)
-        LinuxCLI().cmd('mkdir -p ' + var_run_dir)
-        LinuxCLI().cmd('chown -R cassandra.cassandra ' + var_run_dir)
+        self.cli.rm(var_run_dir)
+        self.cli.mkdir(var_run_dir)
+        self.cli.chown(var_run_dir, 'cassandra', 'cassandra')
 
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control cassandra '+ self.num_id + ' start')
-
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra '+ self.num_id + ' start')
+        
+        # Wait a couple seconds for the process to start before polling nodetool
+        time.sleep(2)
         # Checking Cassandra status
         retries = 0
-        max_retries = 1
-        while not self.cli.cmd('nodetool -h ' + self.ip[0] + ' status'):
+        max_retries = 10
+        while self.cli.oscmd('nodetool -h ' + self.ip[0] + ' status'):
             retries += 1
             if retries > max_retries:
                 print 'Cassandra host ' + self.num_id + ' timed out while starting'
                 return
-            time.sleep(5)
+            time.sleep(2)
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control cassandra '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra '+ self.num_id + ' stop')
 
     def mount_shares(self):
-        self.cli.mount('/run.' + self.num_id, '/run')
+        self.cli.mount('/run/cassandra.' + self.num_id, '/run/cassandra')
         self.cli.mount('/var/lib/cassandra.' + self.num_id, '/var/lib/cassandra')
         self.cli.mount('/var/log/cassandra.' + self.num_id, '/var/log/cassandra')
         self.cli.mount('/etc/cassandra.' + self.num_id, '/etc/cassandra')
 
-    def control_start(self, *args):
-        self.mount_shares()
+    def unmount_shares(self):
+        self.cli.unmount('/run/cassandra')
+        self.cli.unmount('/var/lib/cassandra')
+        self.cli.unmount('/var/log/cassandra')
+        self.cli.unmount('/etc/cassandra')
 
-        self.cli.cmd("find /var/log/cassandra -type f -exec sudo rm -f {} \; || true")
-        self.cli.cmd('MAX_HEAP_SIZE="128M" HEAP_NEWSIZE="64M" /etc/init.d/cassandra start')
+    def control_start(self, *args):
+        self.cli.rm_files('/var/log/cassandra')
+        self.cli.cmd('/bin/bash -c "MAX_HEAP_SIZE=\"128M\" HEAP_NEWSIZE=\"64M\" service cassandra start"')
 
     def control_stop(self, *args):
-        self.mount_shares()
-
-        self.cli.cmd("/etc/init.d/cassandra stop")
+        self.cli.cmd("service cassandra stop")
 
