@@ -13,10 +13,9 @@
 # limitations under the License.
 
 from MTestHost import Host
-from MTestCLI import LinuxCLI
 
 class RouterHost(Host):
-    global_id = 0
+    global_id = 1
 
     def __init__(self, name, cli, host_create_func, host_remove_func):
         super(RouterHost, self).__init__(name, cli, host_create_func, host_remove_func)
@@ -27,31 +26,34 @@ class RouterHost(Host):
         etc_dir = '/etc/quagga.' + self.num_id
         var_lib_dir = '/var/lib/quagga.' + self.num_id
         var_log_dir = '/var/log/quagga.' + self.num_id
-        var_run_dir = '/run.' + self.num_id + '/quagga'
+        var_run_dir = '/run/quagga.' + self.num_id
 
-        if not LinuxCLI().exists(etc_dir):
-            LinuxCLI().cmd('mkdir -p ' + etc_dir)
+        self.cli.rm(etc_dir)
+        self.cli.rm(var_log_dir)
+        self.cli.rm(var_lib_dir)
+        self.cli.rm(var_run_dir)
 
-        if not LinuxCLI().exists(var_lib_dir):
-            LinuxCLI().cmd('mkdir -p ' + var_lib_dir)
-            LinuxCLI().cmd('chown -R quagga.quagga ' + var_lib_dir)
+        if not self.cli.exists(var_lib_dir):
+            self.cli.mkdir(var_lib_dir)
+            self.cli.chown(var_lib_dir, 'quagga', 'quagga')
 
-        if not LinuxCLI().exists(var_log_dir):
-            LinuxCLI().cmd('mkdir -p ' + var_log_dir)
-            LinuxCLI().cmd('chown -R quagga.quagga ' + var_log_dir)
+        if not self.cli.exists(var_log_dir):
+            self.cli.mkdir(var_log_dir)
+            self.cli.chown(var_log_dir, 'quagga', 'quagga')
 
-        if not LinuxCLI().exists(var_run_dir):
-            LinuxCLI().cmd('mkdir -p ' + var_run_dir)
-            LinuxCLI().cmd('chown -R quagga.quagga ' + var_run_dir)
+        self.cli.mkdir('/run/quagga')
+        if not self.cli.exists(var_run_dir):
+            self.cli.mkdir(var_run_dir)
+            self.cli.chown(var_run_dir, 'quagga', 'quagga')
 
-        if self.num_id is '0':
-            LinuxCLI().copy_dir('scripts/quagga.0', etc_dir)
+        if self.num_id is '1':
+            self.cli.copy_dir('scripts/quagga.1', etc_dir)
         else:
             mmconf_file = etc_dir + '/midolman.conf'
-            LinuxCLI().copy_dir('scripts/quagga.1+', etc_dir)
-            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/')
-            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/')
-            LinuxCLI().regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/')
+            self.cli.copy_dir('scripts/quagga.2+', etc_dir)
+            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/')
+            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/')
+            self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/')
 
     def print_config(self, indent=0):
         super(RouterHost, self).print_config(indent)
@@ -60,24 +62,31 @@ class RouterHost(Host):
             j.print_config(indent + 2)
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control router '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router '+ self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure control router '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router '+ self.num_id + ' stop')
 
     def mount_shares(self):
-        self.cli.mount('/run.' + self.num_id, '/run')
+        self.cli.mount('/run/quagga.' + self.num_id, '/run/quagga')
         self.cli.mount('/var/log/quagga.' + self.num_id, '/var/log/quagga')
         self.cli.mount('/etc/quagga.' + self.num_id, '/etc/quagga')
 
-    def control_start(self, *args):
-        self.mount_shares()
+    def unmount_shares(self):
+        self.cli.unmount('/run/quagga')
+        self.cli.unmount('/var/log/quagga')
+        self.cli.unmount('/etc/quagga')
 
+    def control_start(self, *args):
         self.cli.cmd('/etc/init.d/quagga stop >/dev/null 2>&1 || true')
-        self.cli.cmd("find /var/log/quagga -type f -exec sudo rm -f {} \; || true")
+        self.cli.rm_files('/var/log/quagga')
         self.cli.cmd('/etc/init.d/quagga start')
+        if self.cli.exists('/etc/rc.d/init.d/bgpd'):
+            self.cli.cmd('/etc/rc.d/init.d/bgpd start')
 
     def control_stop(self, *args):
         self.cli.cmd('/etc/init.d/quagga stop')
+        if self.cli.exists('/etc/rc.d/init.d/bgpd'):
+            self.cli.cmd('/etc/rc.d/init.d/bgpd stop')
 
 

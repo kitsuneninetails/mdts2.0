@@ -38,7 +38,7 @@ class RootServer(Host):
     def add_host(self, name, host):
         self.hosts[name] = host
         self.interfaces_for_host[name] = []
-        
+
     def get_host(self, name):
         if name not in self.hosts:
             raise HostNotFoundException(name)
@@ -78,6 +78,71 @@ class RootServer(Host):
         for i in self.vlans:
             pass
 
+    def config_bridge(self, name, ip_list):
+        b = self.add_bridge(name)
+        b.add_ips(ip_list)
+
+    def config_zookeeper(self, name, linked_bridge, ip_list):
+        h = ZookeeperHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
+        self.add_host(name, h)
+
+        h.linked_bridge = linked_bridge
+        iface = self.add_virt_interface('veth' + name, 'eth0', h)
+        iface.add_ips(ip_list)
+        self.zookeeper_hosts.append(h)
+        if len(ip_list) is not 0:
+            self.zookeeper_ips.append(ip_list[0])
+            h.ip = ip_list[0]
+
+    def config_cassandra(self, name, linked_bridge, ip_list, extra_data):
+        h = CassandraHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
+        self.add_host(name, h)
+
+        h.linked_bridge = linked_bridge
+        h.init_token = extra_data[0]
+
+        iface = self.add_virt_interface('veth' + name, 'eth0', h)
+        iface.add_ips(ip_list)
+        self.cassandra_hosts.append(h)
+        if len(ip_list) is not 0:
+            self.cassandra_ips.append(ip_list[0])
+            h.ip = ip_list[0]
+
+    def config_compute(self, name, linked_bridge, ip_list):
+        h = ComputeHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
+        self.add_host(name, h)
+
+        h.linked_bridge = linked_bridge
+        h.zookeeper_ips = self.zookeeper_ips
+        h.cassandra_ips = self.cassandra_ips
+
+        iface = self.add_virt_interface('veth' + name, 'eth0', h)
+        iface.add_ips(ip_list)
+        self.compute_hosts.append(h)
+
+    def config_router(self, name, interfaces):
+        h = RouterHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
+        self.add_host(name, h)
+
+        for iface in interfaces:
+            newiface = h.add_hwinterface(iface.get_name(),
+                                         iface.get_far_host_interface_name(),
+                                         self.get_host(iface.get_far_host_name()))
+            newiface.add_ips(iface.get_ip_list())
+        self.routers.append(h)
+
+    def config_vm(self, name, host_name, host_linked_bridge
+        for i in cfg_obj['hosted_vms']:
+            vm_cfg = VMConfig(i)
+            hvname = vm_cfg.get_name()
+            hv_host = self.get_host(hvname)
+            v = hv_host.create_vm(vm_cfg.get_vm().get_name())
+            v.linked_bridge = vm_cfg.get_vm().linked_bridge
+            iface = hv_host.add_virt_interface('veth' + v.get_name(), 'eth0', v)
+            iface.add_ips(vm_cfg.get_vm().get_ip_list())
+
+
+
     def init(self, cfg_obj):
 
         for i in cfg_obj['bridges']:
@@ -89,9 +154,9 @@ class RootServer(Host):
             host_cfg = HostConfig(i)
             hname = host_cfg.get_name()
 
-            h = ZookeeperHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD) 
+            h = ZookeeperHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
             self.add_host(hname, h)
-          
+
             h.linked_bridge = host_cfg.linked_bridge
             iface = self.add_virt_interface('veth' + hname, 'eth0', h)
             iface.add_ips(host_cfg.get_ip_list())
@@ -107,9 +172,9 @@ class RootServer(Host):
             host_cfg = HostConfig(i)
             hname = host_cfg.get_name()
 
-            h = CassandraHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD) 
+            h = CassandraHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
             self.add_host(hname, h)
-          
+
             h.linked_bridge = host_cfg.linked_bridge
             h.init_token = host_cfg.get_extra_data()[0]
 
@@ -127,9 +192,9 @@ class RootServer(Host):
             host_cfg = HostConfig(i)
             hname = host_cfg.get_name()
 
-            h = ComputeHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD) 
+            h = ComputeHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
             self.add_host(hname, h)
-           
+
             h.linked_bridge = host_cfg.linked_bridge
             h.zookeeper_ips = self.zookeeper_ips
             h.cassandra_ips = self.cassandra_ips
@@ -141,12 +206,12 @@ class RootServer(Host):
         for i in cfg_obj['routers']:
             host_cfg = RouterConfig(i)
             hname = host_cfg.get_name()
-            
+
             h = RouterHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
             self.add_host(hname, h)
 
             for iface in host_cfg.get_interfaces():
-                newiface = h.add_hwinterface(iface.get_name(),  
+                newiface = h.add_hwinterface(iface.get_name(),
                                             iface.get_far_host_interface_name(),
                                             self.get_host(iface.get_far_host_name()))
                 newiface.add_ips(iface.get_ip_list())
@@ -223,22 +288,22 @@ class RootServer(Host):
             h.prepareFiles()
         for h in self.compute_hosts:
             h.prepareFiles()
-        for r in self.routers: 
+        for r in self.routers:
             r.prepareFiles()
 
     def start(self):
         for h in self.cassandra_hosts:
-            pass # h.start()
+            h.start()
         for h in self.zookeeper_hosts:
-            pass #h.start()
+            h.start()
         for h in self.network_hosts:
-            pass # h.start()
+            h.start()
         for h in self.compute_hosts:
-            pass #h.start()
+            h.start()
         for h in self.routers:
             h.start()
         for h in self.compute_hosts:
-            pass # h.start_vms()
+            h.start_vms()
         for vlan in self.vlans:
             pass
 
@@ -247,7 +312,7 @@ class RootServer(Host):
             return host_list[host_id-1]
         else:
             raise ObjectNotFoundException(str(host_id))
- 
+
     def control(self, *args):
 
         if len(args) < 3:
@@ -269,15 +334,15 @@ class RootServer(Host):
                 host = self.get_control_host(self.routers, host_id)
             else:
                 raise ArgMismatchException(control_target)
-                 
+
             host.mount_shares()
-                
+
             if control_command == 'start':
                 host.control_start(control_command_args)
-                    
+
             if control_command == 'stop':
                 host.control_stop(control_command_args)
-                        
+
             host.unmount_shares()
 
         except ObjectNotFoundException as e:
@@ -285,7 +350,7 @@ class RootServer(Host):
             raise
         except ArgMismatchException as e:
             print 'Valid targets are: zookeeper, cassandra, compute, or router (got: ' + str(e) + ')'
-            raise 
+            raise
 
     def stop(self):
         for h in self.network_hosts:
@@ -325,7 +390,7 @@ class BridgeConfig(IPListConfig):
 
     def get_base_host(self):
         return self.base_host
-        
+
 class HostConfig(IPListConfig):
     def __init__(self, name_ip_tuple):
         super(HostConfig, self).__init__(name_ip_tuple[0], name_ip_tuple[2])
@@ -349,14 +414,14 @@ class InterfaceConfig(IPListConfig):
 
     def get_far_host_interface_name(self):
         return self.far_host_iface_name
-            
+
 class RouterConfig(ConfigObjectBase):
     def __init__(self, host_iface_tuple):
         super(RouterConfig, self).__init__(host_iface_tuple[0])
         self.interfaces = []
         for iface_def in host_iface_tuple[1]:
             self.interfaces.append(InterfaceConfig(iface_def))
-        
+
     def get_interfaces(self):
         return self.interfaces
 
@@ -364,6 +429,6 @@ class VMConfig(ConfigObjectBase):
     def __init__(self, host_tuple):
         super(VMConfig, self).__init__(host_tuple[0])
         self.vm = HostConfig(host_tuple[1:])
-        
+
     def get_vm(self):
         return self.vm

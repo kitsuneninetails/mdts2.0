@@ -70,9 +70,9 @@ class ZookeeperHost(Host):
 
         # Checking Zookeeper status
         retries = 0
-        max_retries = 2
+        max_retries = 10
         connected = False
-        while connected is False:
+        while not connected:
             ping_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
                 ping_socket.connect((self.ip[0], 2181))
@@ -114,13 +114,13 @@ class ZookeeperHost(Host):
                             ' -Dzookeeper.log.dir=/var/log/zookeeper -Dzookeeper.root.logger=INFO,ROLLINGFILE'
                             ' org.apache.zookeeper.server.quorum.QuorumPeerMain /etc/zookeeper/conf/zoo.cfg & echo $! &'), \
                            return_output = True)
-        print "ZKPID=" + str(pid)
         if (pid == -1):
             raise SubprocessFailedException('java-zookeeper')
         self.cli.write_to_file('/run/zookeeper/pid', pid)
 
     def control_stop(self, *args):
-        pid = self.cli.read_from_file('/run/zookeeper/pid')
-        self.cli.cmd('kill ' + str(pid))
+        if self.cli.exists('/run/zookeeper/pid'):
+            pid = self.cli.read_from_file('/run/zookeeper/pid')
+            self.cli.cmd('kill ' + str(pid))
 
 

@@ -77,12 +77,15 @@ class CassandraHost(Host):
         # Checking Cassandra status
         retries = 0
         max_retries = 10
-        while self.cli.oscmd('nodetool -h ' + self.ip[0] + ' status'):
-            retries += 1
-            if retries > max_retries:
-                print 'Cassandra host ' + self.num_id + ' timed out while starting'
-                return
-            time.sleep(2)
+        connected = False
+        while not connected:
+            if self.cli.oscmd('nodetool -h ' + self.ip[0] + ' status') == 0:
+                connected = True
+            else:
+                retries += 1
+                if retries > max_retries:
+                    raise SocketException('Zookeeper host ' + self.num_id + ' timed out while starting')
+                time.sleep(2)
 
     def stop(self):
         self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra '+ self.num_id + ' stop')
@@ -101,8 +104,8 @@ class CassandraHost(Host):
 
     def control_start(self, *args):
         self.cli.rm_files('/var/log/cassandra')
-        self.cli.cmd('/bin/bash -c "MAX_HEAP_SIZE=\"128M\" HEAP_NEWSIZE=\"64M\" service cassandra start"')
+        self.cli.cmd('/bin/bash -c "MAX_HEAP_SIZE=128M HEAP_NEWSIZE=64M /etc/init.d/cassandra start"')
 
     def control_stop(self, *args):
-        self.cli.cmd("service cassandra stop")
+        self.cli.cmd("/etc/init.d/cassandra stop")
 

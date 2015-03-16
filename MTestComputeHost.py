@@ -65,7 +65,7 @@ class ComputeHost(Host):
 
 	# generates host uuid
         host_uuid = ('# generated for MMM MM $n\n'
-                     'host_uuid=00000000-0000-0000-0000-00000000000$n')
+                     'host_uuid=00000000-0000-0000-0000-00000000000') + self.num_id
         self.cli.write_to_file(etc_dir + '/host_uuid.properties', host_uuid, False)
 
         mmconf = etc_dir + '/midolman.conf'
@@ -129,12 +129,24 @@ class ComputeHost(Host):
 
     def start(self):
         if self.num_id == '1':
-            self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8')
+            pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
+
+            pid = self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8 & echo $! &', return_output = True)
+            self.cli.rm(pid_file)
+            self.cli.write_to_file(pid_file, pid)
        
         self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' start')
 
     def stop(self):
         self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' stop')
+        
+        if self.num_id == '1':
+            pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
+
+            if self.cli.exists(pid_file):
+                pid = self.cli.read_from_file(pid_file)
+                self.cli.cmd('kill ' + str(pid))
+                self.cli.rm(pid_file)
 
     def mount_shares(self):
         self.cli.mount('/run/midolman.' + self.num_id, '/run/midolman')
@@ -151,14 +163,14 @@ class ComputeHost(Host):
     def control_start(self, *args):
         self.cli.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
         pid = self.cli.cmd('/usr/share/midolman/midolman-start & echo $! &', return_output = True)
-        print "MMPID=" + str(pid)
         if (pid == -1):
             raise SubprocessFailedException('midolman')
         self.cli.write_to_file('/run/midolman/pid', pid)
 
     def control_stop(self, *args):
-        pid = self.cli.read_from_file('/run/midolman/pid')
-        self.cli.cmd('kill ' + str(pid))
+        if self.cli.exists('/run/midolman/pid'):
+            pid = self.cli.read_from_file('/run/midolman/pid')
+            self.cli.cmd('kill ' + str(pid))
 
     def start_vms(self):
         for host in self.vms:
