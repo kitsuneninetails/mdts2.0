@@ -131,91 +131,50 @@ class RootServer(Host):
             newiface.add_ips(iface.get_ip_list())
         self.routers.append(h)
 
-    def config_vm(self, name, host_name, host_linked_bridge
-        for i in cfg_obj['hosted_vms']:
-            vm_cfg = VMConfig(i)
-            hvname = vm_cfg.get_name()
-            hv_host = self.get_host(hvname)
-            v = hv_host.create_vm(vm_cfg.get_vm().get_name())
-            v.linked_bridge = vm_cfg.get_vm().linked_bridge
-            iface = hv_host.add_virt_interface('veth' + v.get_name(), 'eth0', v)
-            iface.add_ips(vm_cfg.get_vm().get_ip_list())
+    def config_vm(self, host_name, name, linked_bridge, ip_list):
+        hv_host = self.get_host(host_name)
+        v = hv_host.create_vm(name)
+        v.linked_bridge = host_linked_bridge
+        iface = hv_host.add_virt_interface('veth' + v.get_name(), 'eth0', v)
+        iface.add_ips(ip_list)
 
 
-
-    def init(self, cfg_obj):
+    def init_from_python_map(self, cfg_obj):
 
         for i in cfg_obj['bridges']:
             br_cfg = BridgeConfig(i)
-            b = self.add_bridge(br_cfg.get_name())
-            b.add_ips(br_cfg.get_ip_list())
+            self.config_bridge(br_cfg.get_name(), br_cfg.get_ip_list())
 
         for i in cfg_obj['zookeeper']:
             host_cfg = HostConfig(i)
-            hname = host_cfg.get_name()
-
-            h = ZookeeperHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
-            self.add_host(hname, h)
-
-            h.linked_bridge = host_cfg.linked_bridge
-            iface = self.add_virt_interface('veth' + hname, 'eth0', h)
-            iface.add_ips(host_cfg.get_ip_list())
-            self.zookeeper_hosts.append(h)
-            if len(host_cfg.get_ip_list()) is not 0:
-                self.zookeeper_ips.append(host_cfg.get_ip_list()[0])
-                h.ip = host_cfg.get_ip_list()[0]
+            self.config_zookeeper(host_cfg.get_name(),
+                                  host_cfg.get_linked_bridge(),
+                                  host_cfg.get_ip_list())
 
         for i in self.zookeeper_hosts:
             i.zookeeper_ips = self.zookeeper_ips
 
         for i in cfg_obj['cassandra']:
             host_cfg = HostConfig(i)
-            hname = host_cfg.get_name()
-
-            h = CassandraHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
-            self.add_host(hname, h)
-
-            h.linked_bridge = host_cfg.linked_bridge
-            h.init_token = host_cfg.get_extra_data()[0]
-
-            iface = self.add_virt_interface('veth' + hname, 'eth0', h)
-            iface.add_ips(host_cfg.get_ip_list())
-            self.cassandra_hosts.append(h)
-            if len(host_cfg.get_ip_list()) is not 0:
-                self.cassandra_ips.append(host_cfg.get_ip_list()[0])
-                h.ip = host_cfg.get_ip_list()[0]
+            self.config_cassandra(host_cfg.get_name(),
+                                  host_cfg.get_linked_bridge(),
+                                  host_cfg.get_ip_list())
 
         for i in self.cassandra_hosts:
             i.cassandra_ips = self.cassandra_ips
 
         for i in cfg_obj['compute']:
             host_cfg = HostConfig(i)
-            hname = host_cfg.get_name()
+            self.config_compute(host_cfg.get_name(),
+                                host_cfg.get_linked_bridge(),
+                                host_cfg.get_ip_list())
 
-            h = ComputeHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
-            self.add_host(hname, h)
-
-            h.linked_bridge = host_cfg.linked_bridge
-            h.zookeeper_ips = self.zookeeper_ips
-            h.cassandra_ips = self.cassandra_ips
-
-            iface = self.add_virt_interface('veth' + hname, 'eth0', h)
-            iface.add_ips(host_cfg.get_ip_list())
-            self.compute_hosts.append(h)
 
         for i in cfg_obj['routers']:
             host_cfg = RouterConfig(i)
-            hname = host_cfg.get_name()
-
-            h = RouterHost(hname, NetNSCLI(hname), CREATENSCMD, REMOVENSCMD)
-            self.add_host(hname, h)
-
-            for iface in host_cfg.get_interfaces():
-                newiface = h.add_hwinterface(iface.get_name(),
-                                            iface.get_far_host_interface_name(),
-                                            self.get_host(iface.get_far_host_name()))
-                newiface.add_ips(iface.get_ip_list())
-            self.routers.append(h)
+            self.config_router(host_cfg.get_name(),
+                               host_cfg.get_linked_bridge(),
+                               host_cfg.get_ip_list())
 
         for i in cfg_obj['hosted_vms']:
             vm_cfg = VMConfig(i)

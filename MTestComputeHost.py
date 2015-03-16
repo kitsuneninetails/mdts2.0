@@ -47,12 +47,13 @@ class ComputeHost(Host):
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
         print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
         print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + str(self.cassandra_ips)
-        print ('    ' * (indent + 1)) + 'Hosted vms: '
-        for vm in self.vms:
-            vm.print_config(indent + 2)
-            print ('    ' * (indent + 4)) + 'Interfaces:' 
-            for i in self.get_interfaces_for_host(vm.get_name()):
-                i.print_config(indent + 5)
+        if len(self.vms) > 0:
+            print ('    ' * (indent + 1)) + 'Hosted vms: '
+            for vm in self.vms:
+                vm.print_config(indent + 2)
+                print ('    ' * (indent + 4)) + 'Interfaces:'
+                for i in self.get_interfaces_for_host(vm.get_name()):
+                    i.print_config(indent + 5)
 
     def prepareFiles(self):
         etc_dir = '/etc/midolman.' + self.num_id
@@ -134,12 +135,12 @@ class ComputeHost(Host):
             pid = self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8 & echo $! &', return_output = True)
             self.cli.rm(pid_file)
             self.cli.write_to_file(pid_file, pid)
-       
+
         self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' start')
 
     def stop(self):
         self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' stop')
-        
+
         if self.num_id == '1':
             pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
 
@@ -179,4 +180,3 @@ class ComputeHost(Host):
     def stop_vms(self):
         for host in self.vms:
             host.stop()
-
