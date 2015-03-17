@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from MTestNetworkObject import NetworkObject
-from MTestCLI import LinuxCLI
+
 
 class Interface(NetworkObject):
     def __init__(self, name, near_host):
@@ -24,10 +24,10 @@ class Interface(NetworkObject):
     def setup(self):
         self.get_cli().cmd('ip link add dev ' + self.get_name())
         for ip in self.ip_list:
-            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.get_name())
+            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.get_name())
 
     def cleanup(self):
-        self.get_cli().cmd('ip link del dev '  + self.get_name())
+        self.get_cli().cmd('ip link del dev ' + self.get_name())
 
     def up(self):
         self.get_cli().cmd('ip link set dev ' + self.get_name() + ' up')
@@ -52,4 +52,3 @@ class Interface(NetworkObject):
 
     def print_config(self, indent=0):
         print ('    ' * indent) + self.name + ' with ips: ' + str(self.ip_list)
-

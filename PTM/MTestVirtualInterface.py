@@ -13,10 +13,10 @@
 # limitations under the License.
 
 from MTestInterface import Interface
-from MTestCLI import LinuxCLI
+
 
 class VirtualInterface(Interface):
-    def __init__(self, name, near_host, far_iface_name, far_host, peer_ext = '.p'):
+    def __init__(self, name, near_host, far_iface_name, far_host, peer_ext='.p'):
         super(VirtualInterface, self).__init__(name, near_host)
         self.peer_name = self.get_name() + peer_ext
         self.far_host = far_host
@@ -26,10 +26,11 @@ class VirtualInterface(Interface):
         # add a veth-type interface with a peer
         self.get_cli().cmd('ip link add dev ' + self.get_name() + ' type veth peer name ' + self.peer_name)
         # move peer iface onto far host's namespace
-        self.get_cli().cmd('ip link set dev ' + self.peer_name + ' netns ' + self.far_host.get_name() + ' name ' + self.far_iface_name)
+        self.get_cli().cmd('ip link set dev ' + self.peer_name + ' netns ' +
+                           self.far_host.get_name() + ' name ' + self.far_iface_name)
         # add ips
         for ip in self.ip_list:
-            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev '  + self.far_iface_name)
+            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.far_iface_name)
 
     def up(self):
         # Set main iface up
@@ -56,4 +57,3 @@ class VirtualInterface(Interface):
     def print_config(self, indent=0):
         print ('    ' * indent) + self.name + ' linked as ' + self.far_host.get_name() + '/' \
             + self.far_iface_name + ' with ips: ' + str(self.ip_list)
-

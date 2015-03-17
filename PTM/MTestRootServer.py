@@ -21,6 +21,7 @@ from MTestComputeHost import ComputeHost
 from MTestRouterHost import RouterHost
 from MTestCLI import LinuxCLI, NetNSCLI, CREATENSCMD, REMOVENSCMD
 
+
 class RootServer(Host):
     def __init__(self):
         super(RootServer, self).__init__('root', LinuxCLI(), lambda name: None, lambda name: None)
@@ -35,15 +36,6 @@ class RootServer(Host):
         self.zookeeper_ips = []
         self.cassandra_ips = []
 
-    def add_host(self, name, host):
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = []
-
-    def get_host(self, name):
-        if name not in self.hosts:
-            raise HostNotFoundException(name)
-        return self.hosts[name]
-
     def print_config(self, indent=0):
         print '[bridges]'
         for b in self.bridges.values():
@@ -54,29 +46,38 @@ class RootServer(Host):
             h.print_config(indent + 1)
             print ('    ' * (indent + 2)) + 'Interfaces:'
             for i in self.get_interfaces_for_host(h.get_name()):
-                 i.print_config(indent + 3)
+                i.print_config(indent + 3)
 
         print '[cassandra]'
         for h in self.cassandra_hosts:
             h.print_config(indent + 1)
             print ('    ' * (indent + 2)) + 'Interfaces:'
             for i in self.get_interfaces_for_host(h.get_name()):
-                 i.print_config(indent + 3)
+                i.print_config(indent + 3)
 
         print '[compute]'
         for h in self.compute_hosts:
             h.print_config(indent + 1)
             print ('    ' * (indent + 2)) + 'Interfaces:'
             for i in self.get_interfaces_for_host(h.get_name()):
-                 i.print_config(indent + 3)
+                i.print_config(indent + 3)
 
         print '[routers]'
         for r in self.routers:
             r.print_config(indent + 1)
 
         print '[vlans]'
-        for i in self.vlans:
-            pass
+        # for i in self.vlans:
+        #    pass
+
+    def add_host(self, name, host):
+        self.hosts[name] = host
+        self.interfaces_for_host[name] = []
+
+    def get_host(self, name):
+        if name not in self.hosts:
+            raise HostNotFoundException(name)
+        return self.hosts[name]
 
     def config_bridge(self, name, ip_list):
         b = self.add_bridge(name)
@@ -90,9 +91,8 @@ class RootServer(Host):
         iface = self.add_virt_interface('veth' + name, 'eth0', h)
         iface.add_ips(ip_list)
         self.zookeeper_hosts.append(h)
-        if len(ip_list) is not 0:
-            self.zookeeper_ips.append(ip_list[0])
-            h.ip = ip_list[0]
+        self.zookeeper_ips.append(ip_list[0])
+        h.ip = ip_list[0]
 
     def config_cassandra(self, name, linked_bridge, ip_list, extra_data):
         h = CassandraHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
@@ -104,9 +104,8 @@ class RootServer(Host):
         iface = self.add_virt_interface('veth' + name, 'eth0', h)
         iface.add_ips(ip_list)
         self.cassandra_hosts.append(h)
-        if len(ip_list) is not 0:
-            self.cassandra_ips.append(ip_list[0])
-            h.ip = ip_list[0]
+        self.cassandra_ips.append(ip_list[0])
+        h.ip = ip_list[0]
 
     def config_compute(self, name, linked_bridge, ip_list):
         h = ComputeHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
@@ -134,13 +133,11 @@ class RootServer(Host):
     def config_vm(self, host_name, name, linked_bridge, ip_list):
         hv_host = self.get_host(host_name)
         v = hv_host.create_vm(name)
-        v.linked_bridge = host_linked_bridge
+        v.linked_bridge = linked_bridge
         iface = hv_host.add_virt_interface('veth' + v.get_name(), 'eth0', v)
         iface.add_ips(ip_list)
 
-
     def init_from_python_map(self, cfg_obj):
-
         for i in cfg_obj['bridges']:
             br_cfg = BridgeConfig(i)
             self.config_bridge(br_cfg.get_name(), br_cfg.get_ip_list())
@@ -151,17 +148,12 @@ class RootServer(Host):
                                   host_cfg.get_linked_bridge(),
                                   host_cfg.get_ip_list())
 
-        for i in self.zookeeper_hosts:
-            i.zookeeper_ips = self.zookeeper_ips
-
         for i in cfg_obj['cassandra']:
             host_cfg = HostConfig(i)
             self.config_cassandra(host_cfg.get_name(),
                                   host_cfg.get_linked_bridge(),
-                                  host_cfg.get_ip_list())
-
-        for i in self.cassandra_hosts:
-            i.cassandra_ips = self.cassandra_ips
+                                  host_cfg.get_ip_list(),
+                                  host_cfg.get_extra_data())
 
         for i in cfg_obj['compute']:
             host_cfg = HostConfig(i)
@@ -169,24 +161,27 @@ class RootServer(Host):
                                 host_cfg.get_linked_bridge(),
                                 host_cfg.get_ip_list())
 
-
         for i in cfg_obj['routers']:
             host_cfg = RouterConfig(i)
             self.config_router(host_cfg.get_name(),
-                               host_cfg.get_linked_bridge(),
-                               host_cfg.get_ip_list())
+                               host_cfg.get_interfaces())
 
         for i in cfg_obj['hosted_vms']:
             vm_cfg = VMConfig(i)
-            hvname = vm_cfg.get_name()
-            hv_host = self.get_host(hvname)
-            v = hv_host.create_vm(vm_cfg.get_vm().get_name())
-            v.linked_bridge = vm_cfg.get_vm().linked_bridge
-            iface = hv_host.add_virt_interface('veth' + v.get_name(), 'eth0', v)
-            iface.add_ips(vm_cfg.get_vm().get_ip_list())
+            self.config_vm(vm_cfg.get_vm().get_name(), vm_cfg.get_name(),
+                           vm_cfg.get_vm().get_linked_bridge(), vm_cfg.get_vm().get_ip_list())
 
-        for i in cfg_obj['vlans']:
-            pass
+        # for i in cfg_obj['vlans']:
+        #    pass
+
+        self.init_finish()
+
+    def init_finish(self):
+        for i in self.zookeeper_hosts:
+            i.zookeeper_ips = self.zookeeper_ips
+
+        for i in self.cassandra_hosts:
+            i.cassandra_ips = self.cassandra_ips
 
         net_host = NetworkHost('net-node', LinuxCLI(), lambda name: None, lambda name: None)
         net_host.zookeeper_ips = self.zookeeper_ips
@@ -209,8 +204,8 @@ class RootServer(Host):
             router.setup()
         for h in self.compute_hosts:
             h.setup_vms()
-        for vlan in self.vlans:
-            pass
+        # for vlan in self.vlans:
+        #    pass
         for iface in self.hwinterfaces:
             iface.setup()
             iface.up()
@@ -219,8 +214,8 @@ class RootServer(Host):
         for iface in self.hwinterfaces:
             iface.down()
             iface.cleanup()
-        for vlan in self.vlans:
-            pass
+        # for vlan in self.vlans:
+        #    pass
         for h in self.compute_hosts:
             h.cleanup_vms()
         for router in self.routers:
@@ -238,17 +233,17 @@ class RootServer(Host):
             b.down()
             b.cleanup()
 
-    def prepareFiles(self):
+    def prepare_files(self):
         for h in self.network_hosts:
-            h.prepareFiles()
+            h.prepare_files()
         for h in self.cassandra_hosts:
-            h.prepareFiles()
+            h.prepare_files()
         for h in self.zookeeper_hosts:
-            h.prepareFiles()
+            h.prepare_files()
         for h in self.compute_hosts:
-            h.prepareFiles()
+            h.prepare_files()
         for r in self.routers:
-            r.prepareFiles()
+            r.prepare_files()
 
     def start(self):
         for h in self.cassandra_hosts:
@@ -263,21 +258,22 @@ class RootServer(Host):
             h.start()
         for h in self.compute_hosts:
             h.start_vms()
-        for vlan in self.vlans:
-            pass
+        # for vlan in self.vlans:
+        #    pass
 
-    def get_control_host(self, host_list, host_id):
+    @staticmethod
+    def get_control_host(host_list, host_id):
         if host_id != 0 and len(host_list) >= host_id:
             return host_list[host_id-1]
         else:
             raise ObjectNotFoundException(str(host_id))
 
     def control(self, *args):
-
         if len(args) < 3:
-            raise ArgMismatchException('<target> <id> <command> <optional_args>', ' '.join(args))
+            print 'MTestEnvConfigure.py control requires <target> <id> <command> <optional_args>'
+            raise ArgMismatchException(''.join(args))
 
-        control_target= args[0]
+        control_target = args[0]
         host_id = int(args[1])
         control_command = args[2]
         control_command_args = args[3:]
@@ -304,7 +300,7 @@ class RootServer(Host):
 
             host.unmount_shares()
 
-        except ObjectNotFoundException as e:
+        except ObjectNotFoundException:
             print 'Host not found for target ' + control_target + ' and ID ' + str(host_id)
             raise
         except ArgMismatchException as e:
@@ -324,8 +320,9 @@ class RootServer(Host):
             h.stop()
         for h in self.zookeeper_hosts:
             h.stop()
-        for vlan in self.vlans:
-            pass
+        # for vlan in self.vlans:
+        #    pass
+
 
 class ConfigObjectBase(object):
     def __init__(self, name):
@@ -333,6 +330,7 @@ class ConfigObjectBase(object):
 
     def get_name(self):
         return self.name
+
 
 class IPListConfig(ConfigObjectBase):
     def __init__(self, name, ip_tuple):
@@ -342,6 +340,7 @@ class IPListConfig(ConfigObjectBase):
     def get_ip_list(self):
         return self.ip_list
 
+
 class BridgeConfig(IPListConfig):
     def __init__(self, name_ip_tuple):
         super(BridgeConfig, self).__init__(name_ip_tuple[0], name_ip_tuple[2])
@@ -349,6 +348,7 @@ class BridgeConfig(IPListConfig):
 
     def get_base_host(self):
         return self.base_host
+
 
 class HostConfig(IPListConfig):
     def __init__(self, name_ip_tuple):
@@ -362,6 +362,7 @@ class HostConfig(IPListConfig):
     def get_extra_data(self):
         return self.extra_data
 
+
 class InterfaceConfig(IPListConfig):
     def __init__(self, iface_tuple):
         super(InterfaceConfig, self).__init__(iface_tuple[0], iface_tuple[2])
@@ -374,6 +375,7 @@ class InterfaceConfig(IPListConfig):
     def get_far_host_interface_name(self):
         return self.far_host_iface_name
 
+
 class RouterConfig(ConfigObjectBase):
     def __init__(self, host_iface_tuple):
         super(RouterConfig, self).__init__(host_iface_tuple[0])
@@ -383,6 +385,7 @@ class RouterConfig(ConfigObjectBase):
 
     def get_interfaces(self):
         return self.interfaces
+
 
 class VMConfig(ConfigObjectBase):
     def __init__(self, host_tuple):

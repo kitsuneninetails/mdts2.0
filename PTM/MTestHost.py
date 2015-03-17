@@ -13,11 +13,10 @@
 # limitations under the License.
 
 from MTestExceptions import *
-from MTestCLI import LinuxCLI, NetNSCLI
 from MTestNetworkObject import NetworkObject
 from MTestBridge import Bridge
-from MTestInterface import Interface
 from MTestVirtualInterface import VirtualInterface
+
 
 class Host(NetworkObject):
     def __init__(self, name, cli, host_create_func, host_remove_func):
@@ -48,7 +47,7 @@ class Host(NetworkObject):
                 br = self.get_bridge(host.linked_bridge)
                 br.add_link_interface(interface.get_name())
                 if len(br.get_ips()) is not 0:
-                    interface.add_peer_route(('0.0.0.0','0'), br.get_ips()[0])
+                    interface.add_peer_route(('0.0.0.0', '0'), br.get_ips()[0])
 
     def cleanup(self):
         for bridge in self.bridges:
@@ -94,7 +93,7 @@ class Host(NetworkObject):
 
     def get_interfaces_for_host(self, far_host):
         if far_host not in self.interfaces_for_host:
-            raise ObjectNotFoundException(farHost)
+            raise ObjectNotFoundException(far_host)
         return self.interfaces_for_host[far_host]
 
     def print_config(self, indent=0):

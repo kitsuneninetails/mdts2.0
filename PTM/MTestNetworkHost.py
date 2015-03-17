@@ -14,6 +14,7 @@
 
 from MTestHost import Host
 
+
 class NetworkHost(Host):
     def __init__(self, name, cli, host_create_func, host_remove_func):
         super(NetworkHost, self).__init__(name, cli, host_create_func, host_remove_func)
@@ -23,27 +24,27 @@ class NetworkHost(Host):
         super(NetworkHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
 
-    def prepareFiles(self):
+    def prepare_files(self):
 
         if len(self.zookeeper_ips) is not 0:
             ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
-        else :
+        else:
             ip_str = ''
 
         self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml', 
-                            's/\(127.0.0.1:2181\|' + str(self.zookeeper_ips[0][0]) + \
+                            's/\(127.0.0.1:2181\|' + str(self.zookeeper_ips[0][0]) +
                             ':2181[^<]*\)/' + ip_str + '/')
 
         if self.cli.grep_file('/usr/share/midonet-api/WEB-INF/web.xml', 'zookeeper-curator_enabled'):
             self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml',
                                 (r's/<param-name>zookeeper-zookeeper_hosts<\/param-name>/<param-name>'
-                                r'zookeeper-curator_enabled<\/param-name>\n    <param-value>true<\/p'
-                                r'aram-value>\n  <\/context-param>\n  <context-param>\n    <param-na'
-                                r'me>zookeeper-zookeeper_hosts<\/param-name>/'))
+                                 r'zookeeper-curator_enabled<\/param-name>\n    <param-value>true<\/p'
+                                 r'aram-value>\n  <\/context-param>\n  <context-param>\n    <param-na'
+                                 r'me>zookeeper-zookeeper_hosts<\/param-name>/'))
 
         self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml',
                             ('s/org.midonet.api.auth.keystone.v2_0.KeystoneService/org.midonet.api.a'
-                            'uth.MockAuthService/g'))
+                             'uth.MockAuthService/g'))
 
         tcatcfg = ('<Context path="/midonet-api" docBase="/usr/share/midonet-api"\n'
                    '         antiResourceLocking="false" privileged="true" />')
@@ -56,12 +57,11 @@ class NetworkHost(Host):
         if self.cli.exists('/var/www/html/midonet-cp/config.js'):
             self.cli.regex_file('/var/www/html/midonet-cp/config.js',
                                 ('s%https://example.com/midonet-api%http://$public:8080/midonet-api%'
-                                'g;s/example.com/$public:8443/g'))
+                                 'g;s/example.com/$public:8443/g'))
         elif self.cli.exists('/var/www/midonet-cp/config.js'):
             self.cli.regex_file('/var/www/midonet-cp/config.js',
                                 ('s%https://example.com/midonet-api%http://$public:8080/midonet-api%'
-                                'g;s/example.com/$public:8443/g'))
-
+                                 'g;s/example.com/$public:8443/g'))
 
     def start(self):
         self.cli.cmd('/etc/init.d/tomcat7 restart')

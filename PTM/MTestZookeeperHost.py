@@ -4,7 +4,7 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#     http://www.apache.org/licenses/LICENSE-2.0
+# http://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,11 +14,13 @@
 
 from MTestExceptions import *
 from MTestHost import Host
-import time, socket
+import time
+import socket
+
 
 class ZookeeperHost(Host):
     global_id = 1
-    
+
     def __init__(self, name, cli, host_create_func, host_remove_func):
         super(ZookeeperHost, self).__init__(name, cli, host_create_func, host_remove_func)
         self.zookeeper_ips = []
@@ -33,15 +35,16 @@ class ZookeeperHost(Host):
         print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
         print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
 
-    def prepareFiles(self):
+    def prepare_files(self):
         if self.num_id == '1':
             etc_dir = '/etc/zookeeper.test'
             self.cli.rm(etc_dir)
             self.cli.copy_dir('/etc/zookeeper', etc_dir)
-            
+
             write_string = ''
-            for j in range(0,len(self.zookeeper_ips)):
-                write_string = write_string + 'server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
+            for j in range(0, len(self.zookeeper_ips)):
+                write_string = write_string + 'server.' + str(j + 1) + '=' + \
+                               str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
 
             print 'write_str=' + write_string
             self.cli.write_to_file(etc_dir + '/conf/zoo.cfg', write_string, append=True)
@@ -66,7 +69,7 @@ class ZookeeperHost(Host):
         self.cli.chown(var_run_dir, 'zookeeper', 'zookeeper')
 
     def start(self):
-        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper ' + self.num_id + ' start')
 
         # Checking Zookeeper status
         retries = 0
@@ -77,20 +80,20 @@ class ZookeeperHost(Host):
             try:
                 ping_socket.connect((self.ip[0], 2181))
                 ping_socket.send('ruok')
-                if ping_socket.recv(16) == 'imok': 
+                if ping_socket.recv(16) == 'imok':
                     connected = True
                 else:
                     retries += 1
                     if retries > max_retries:
                         raise SocketException('Zookeeper host ' + self.num_id + ' timed out while starting')
-                        time.sleep(2)
+                    time.sleep(2)
             except SocketException:
                 raise
-            except:
+            except Exception:
                 pass
 
     def stop(self):
-        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/zookeeper.' + self.num_id, '/run/zookeeper')
@@ -107,14 +110,23 @@ class ZookeeperHost(Host):
     def control_start(self, *args):
         self.cli.rm_files('/var/log/zookeeper')
         pid = self.cli.cmd(('/usr/bin/java'
-                            ' -cp /etc/zookeeper/conf:/usr/share/java/jline.jar:/usr/share/java/log4j-1.2.jar:'
-                            '/usr/share/java/xercesImpl.jar:/usr/share/java/xmlParserAPIs.jar:/usr/share/java/netty.jar:'
-                            '/usr/share/java/slf4j-api.jar:/usr/share/java/slf4j-log4j12.jar:/usr/share/java/zookeeper.jar'
-                            ' -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.local.only=false'
-                            ' -Dzookeeper.log.dir=/var/log/zookeeper -Dzookeeper.root.logger=INFO,ROLLINGFILE'
-                            ' org.apache.zookeeper.server.quorum.QuorumPeerMain /etc/zookeeper/conf/zoo.cfg & echo $! &'), \
-                           return_output = True)
-        if (pid == -1):
+                            ' -cp /etc/zookeeper/conf:'
+                                 '/usr/share/java/jline.jar:'
+                                 '/usr/share/java/log4j-1.2.jar:'
+                                 '/usr/share/java/xercesImpl.jar:'
+                                 '/usr/share/java/xmlParserAPIs.jar:'
+                                 '/usr/share/java/netty.jar:'
+                                 '/usr/share/java/slf4j-api.jar:'
+                                 '/usr/share/java/slf4j-log4j12.jar:'
+                                 '/usr/share/java/zookeeper.jar'
+                            ' -Dcom.sun.management.jmxremote'
+                            ' -Dcom.sun.management.jmxremote.local.only=false'
+                            ' -Dzookeeper.log.dir=/var/log/zookeeper'
+                            ' -Dzookeeper.root.logger=INFO,ROLLINGFILE'
+                            ' org.apache.zookeeper.server.quorum.QuorumPeerMain'
+                            ' /etc/zookeeper/conf/zoo.cfg & echo $! &'),
+                           return_output=True)
+        if pid == -1:
             raise SubprocessFailedException('java-zookeeper')
         self.cli.write_to_file('/run/zookeeper/pid', pid)
 
@@ -122,5 +134,3 @@ class ZookeeperHost(Host):
         if self.cli.exists('/run/zookeeper/pid'):
             pid = self.cli.read_from_file('/run/zookeeper/pid')
             self.cli.cmd('kill ' + str(pid))
-
-

@@ -12,50 +12,66 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 class HostNotFoundException(Exception):
     def __init__(self, host):
         self.host = host
+
     def __str__(self):
         return repr(self.host)
+
 
 class HostAlreadyStartedException(Exception):
     def __init__(self, host):
         self.host = host
+
     def __str__(self):
         return repr(self.host)
+
 
 class ObjectNotFoundException(Exception):
     def __init__(self, obj_name):
         self.obj_name = obj_name
+
     def __str__(self):
         return repr(self.obj_name)
+
 
 class ObjectAlreadyAddedException(Exception):
     def __init__(self, obj_name):
         self.obj_name = obj_name
+
     def __str__(self):
         return repr(self.obj_name)
+
 
 class ArgMismatchException(Exception): 
     def __init__(self, arg):
         self.arg = arg
+
     def __str__(self):
         return repr(self.arg)
+
 
 class SubprocessFailedException(Exception):
     def __init__(self, process_name):
         self.process_name = process_name
+
     def __str__(self):
         return repr(self.process_name)
+
 
 class ExitCleanException(Exception):
     def __init__(self):
         pass
+
     def __str__(self):
         return ''
+
 
 class SocketException(Exception):    
     def __init__(self, info):
         self.info = info
+
     def __str__(self):
         return repr(self.info)

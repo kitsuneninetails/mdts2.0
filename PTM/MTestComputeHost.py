@@ -15,6 +15,8 @@
 from MTestHost import Host
 from MTestVMHost import VMHost
 from MTestCLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
+from MTestExceptions import *
+
 
 class ComputeHost(Host):
     global_id = 1
@@ -55,7 +57,7 @@ class ComputeHost(Host):
                 for i in self.get_interfaces_for_host(vm.get_name()):
                     i.print_config(indent + 5)
 
-    def prepareFiles(self):
+    def prepare_files(self):
         etc_dir = '/etc/midolman.' + self.num_id
         var_lib_dir = '/var/lib/midolman.' + self.num_id
         var_log_dir = '/var/lib/midolman.' + self.num_id
@@ -64,7 +66,7 @@ class ComputeHost(Host):
         self.cli.rm(etc_dir)
         self.cli.copy_dir('/etc/midolman', etc_dir)
 
-	# generates host uuid
+        # generates host uuid
         host_uuid = ('# generated for MMM MM $n\n'
                      'host_uuid=00000000-0000-0000-0000-00000000000') + self.num_id
         self.cli.write_to_file(etc_dir + '/host_uuid.properties', host_uuid, False)
@@ -73,32 +75,32 @@ class ComputeHost(Host):
 
         if len(self.zookeeper_ips) is not 0:
             z_ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
-        else :
+        else:
             z_ip_str = ''
 
         if len(self.cassandra_ips) is not 0:
             c_ip_str = ''.join([str(ip[0]) + ',' for ip in self.cassandra_ips])[:-1]
-        else :
+        else:
             c_ip_str = ''
 
         self.cli.regex_file(mmconf,
-                            '/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = ' + \
-                             z_ip_str + '/')
+                            '/^\[zookeeper\]/,/^$/ s/^zookeeper_hosts =.*$/zookeeper_hosts = ' +
+                            z_ip_str + '/')
 
         self.cli.regex_file(mmconf,
-                            '/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = ' + \
-                             c_ip_str + '/;s/^replication_factor =.*$/replication_factor = 3/')
+                            '/^\[cassandra\]/,/^$/ s/^servers =.*$/servers = ' +
+                            c_ip_str + '/;s/^replication_factor =.*$/replication_factor = 3/')
 
         self.cli.regex_file(mmconf,
                             ('/^\[midolman\]/,/^\[/ s%^[# ]*bgpd_binary = /usr/lib/quagga.*$%bg'
                              'pd_binary = /usr/lib/quagga%'))
 
-	if not self.cli.grep_file(mmconf, '\[haproxy_health_monitor\]'):
+        if not self.cli.grep_file(mmconf, '\[haproxy_health_monitor\]'):
             hmoncfg = ('# Enable haproxy on the node.\n'
                        '[haproxy_health_monitor]\n'
                        'namespace_cleanup = true\n'
                        'health_monitor_enable = true\n'
-                       'haproxy_file_loc =')  + etc_dir + '/l4lb/\n'
+                       'haproxy_file_loc =') + etc_dir + '/l4lb/\n'
             self.cli.write_to_file(mmconf, hmoncfg, True)
 
         lb = etc_dir + '/logback.xml'
@@ -119,12 +121,12 @@ class ComputeHost(Host):
 
         mmenv = etc_dir + '/midolman-env.sh'
 
-	# Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
+    # Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
         self.cli.regex_file(mmenv, '/runjdwp/s/^..//g')
         self.cli.regex_file(mmenv, '/runjdwp/s/1414/141' + self.num_id + '/g')
 
-	# Setting memory to the ones before
-	# https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
+    # Setting memory to the ones before
+    # https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
         self.cli.regex_file(mmenv, 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/')
         self.cli.regex_file(mmenv, 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/')
 
@@ -132,14 +134,14 @@ class ComputeHost(Host):
         if self.num_id == '1':
             pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
 
-            pid = self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8 & echo $! &', return_output = True)
+            pid = self.cli.cmd('dnsmasq --no-host --no-resolv -S 8.8.8.8 & echo $! &', return_output=True)
             self.cli.rm(pid_file)
             self.cli.write_to_file(pid_file, pid)
 
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute ' + self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute ' + self.num_id + ' stop')
 
         if self.num_id == '1':
             pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
@@ -163,8 +165,8 @@ class ComputeHost(Host):
 
     def control_start(self, *args):
         self.cli.cmd("sysctl -w net.ipv6.conf.default.disable_ipv6=1")
-        pid = self.cli.cmd('/usr/share/midolman/midolman-start & echo $! &', return_output = True)
-        if (pid == -1):
+        pid = self.cli.cmd('/usr/share/midolman/midolman-start & echo $! &', return_output=True)
+        if pid == -1:
             raise SubprocessFailedException('midolman')
         self.cli.write_to_file('/run/midolman/pid', pid)
 

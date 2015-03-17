@@ -13,7 +13,9 @@
 # limitations under the License.
 
 from MTestHost import Host
+from MTestExceptions import *
 import time
+
 
 class CassandraHost(Host):
     global_id = 1
@@ -23,6 +25,7 @@ class CassandraHost(Host):
         self.cassandra_ips = []
         self.num_id = str(CassandraHost.global_id)
         CassandraHost.global_id += 1
+        self.init_token = ''
         self.ip = ()
         
     def print_config(self, indent=0):
@@ -32,24 +35,23 @@ class CassandraHost(Host):
         print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
         print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + str(self.cassandra_ips)
 
-    def prepareFiles(self):
+    def prepare_files(self):
         if len(self.cassandra_ips) is not 0:
             seed_str = ''.join([str(ip[0]) + ',' for ip in self.cassandra_ips])[:-1]
-        else :
+        else:
             seed_str = ''
 
         etc_dir = '/etc/cassandra.' + self.num_id
         var_lib_dir = '/var/lib/cassandra.' + self.num_id
         var_log_dir = '/var/log/cassandra.' + self.num_id
         var_run_dir = '/run/cassandra.' + self.num_id
-        
+
         self.cli.rm(etc_dir)
         self.cli.copy_dir('/etc/cassandra', etc_dir)
-	# Work around for https://issues.apache.org/jira/browse/CASSANDRA-5895
-	self.cli.regex_file(etc_dir + '/cassandra-env.sh',
-                            's/-Xss[1-9][0-9]*k/-Xss228k/')
 
-	self.cli.regex_file_multi(etc_dir + '/cassandra.yaml',
+        # Work around for https://issues.apache.org/jira/browse/CASSANDRA-5895
+        self.cli.regex_file(etc_dir + '/cassandra-env.sh', 's/-Xss[1-9][0-9]*k/-Xss228k/')
+        self.cli.regex_file_multi(etc_dir + '/cassandra.yaml',
                                   "s/^cluster_name:.*$/cluster_name: 'midonet'/",
                                   's/^initial_token:.*$/initial_token: ' + self.init_token + '/',
                                   "/^seed_provider:/,/^$/ s/seeds:.*$/seeds: '" + seed_str + "'/",
@@ -68,9 +70,8 @@ class CassandraHost(Host):
         self.cli.mkdir(var_run_dir)
         self.cli.chown(var_run_dir, 'cassandra', 'cassandra')
 
-
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra ' + self.num_id + ' start')
         
         # Wait a couple seconds for the process to start before polling nodetool
         time.sleep(2)
@@ -88,7 +89,7 @@ class CassandraHost(Host):
                 time.sleep(2)
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/cassandra.' + self.num_id, '/run/cassandra')
@@ -108,4 +109,3 @@ class CassandraHost(Host):
 
     def control_stop(self, *args):
         self.cli.cmd("/etc/init.d/cassandra stop")
-

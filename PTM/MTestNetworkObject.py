@@ -12,14 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestHost import Host
 
-class VMHost(Host):
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func)
+class NetworkObject(object):
+    def __init__(self, name, cli):
+        super(NetworkObject, self).__init__()
+        self.name = name
+        self.cli = cli
+        self.create_state = False
 
-    def start(self):
-        pass
+    def get_name(self):
+        return self.name
 
-    def stop(self):
+    def get_cli(self):
+        return self.cli
+
+    def print_config(self, indent=0):
         pass

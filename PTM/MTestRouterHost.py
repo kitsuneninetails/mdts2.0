@@ -14,6 +14,7 @@
 
 from MTestHost import Host
 
+
 class RouterHost(Host):
     global_id = 1
 
@@ -22,7 +23,7 @@ class RouterHost(Host):
         self.num_id = str(RouterHost.global_id)
         RouterHost.global_id += 1
 
-    def prepareFiles(self):
+    def prepare_files(self):
         etc_dir = '/etc/quagga.' + self.num_id
         var_lib_dir = '/var/lib/quagga.' + self.num_id
         var_log_dir = '/var/log/quagga.' + self.num_id
@@ -62,10 +63,10 @@ class RouterHost(Host):
             j.print_config(indent + 2)
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router '+ self.num_id + ' start')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router ' + self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router '+ self.num_id + ' stop')
+        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/quagga.' + self.num_id, '/run/quagga')
@@ -88,5 +89,3 @@ class RouterHost(Host):
         self.cli.cmd('/etc/init.d/quagga stop')
         if self.cli.exists('/etc/rc.d/init.d/bgpd'):
             self.cli.cmd('/etc/rc.d/init.d/bgpd stop')
-
-
