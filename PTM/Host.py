@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestExceptions import *
-from MTestNetworkObject import NetworkObject
-from MTestBridge import Bridge
-from MTestVirtualInterface import VirtualInterface
+from Exceptions import *
+from NetworkObject import NetworkObject
+from Bridge import Bridge
+from VirtualInterface import VirtualInterface
 
 
 class Host(NetworkObject):
@@ -38,6 +38,8 @@ class Host(NetworkObject):
         for iface in self.hwinterfaces:
             iface.setup()
             iface.up()
+
+        self.set_loopback()
 
     def setup_host_interfaces(self, host):
         for interface in self.get_interfaces_for_host(host.get_name()):
@@ -65,7 +67,7 @@ class Host(NetworkObject):
             interface.down()
             interface.cleanup()
 
-    def set_loopback(self, ip):
+    def set_loopback(self, ip=('127.0.0.1', 8)):
         self.cli.cmd('ip link set dev lo up')
         self.cli.cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev lo')
 

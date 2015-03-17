@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestHost import Host
+from Host import Host
 
 
 class RouterHost(Host):
@@ -63,10 +63,10 @@ class RouterHost(Host):
             j.print_config(indent + 2)
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router ' + self.num_id + ' start')
+        self.cli.cmd_unshare_self('control router ' + self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control router ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_self('control router ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/quagga.' + self.num_id, '/run/quagga')

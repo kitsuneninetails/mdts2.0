@@ -12,14 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestExceptions import *
-from MTestHost import Host
-from MTestZookeeperHost import ZookeeperHost
-from MTestNetworkHost import NetworkHost
-from MTestCassandraHost import CassandraHost
-from MTestComputeHost import ComputeHost
-from MTestRouterHost import RouterHost
-from MTestCLI import LinuxCLI, NetNSCLI, CREATENSCMD, REMOVENSCMD
+from Exceptions import *
+from Host import Host
+from ZookeeperHost import ZookeeperHost
+from NetworkHost import NetworkHost
+from CassandraHost import CassandraHost
+from ComputeHost import ComputeHost
+from RouterHost import RouterHost
+from common.CLI import LinuxCLI, NetNSCLI, CREATENSCMD, REMOVENSCMD
 
 
 class RootServer(Host):
@@ -270,7 +270,7 @@ class RootServer(Host):
 
     def control(self, *args):
         if len(args) < 3:
-            print 'MTestEnvConfigure.py control requires <target> <id> <command> <optional_args>'
+            print 'EnvConfigure.py control requires <target> <id> <command> <optional_args>'
             raise ArgMismatchException(''.join(args))
 
         control_target = args[0]

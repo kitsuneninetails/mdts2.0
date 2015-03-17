@@ -19,6 +19,7 @@ DEBUG = False
 
 CREATENSCMD = lambda name: LinuxCLI().cmd('ip netns add ' + name)
 REMOVENSCMD = lambda name: LinuxCLI().cmd('ip netns del ' + name)
+SELF_CMD_NAME = './EnvConfigure.py'
 
 
 class LinuxCLI(object):
@@ -138,6 +139,10 @@ class LinuxCLI(object):
     @staticmethod
     def cmd_unshare(cmd_line):
         return LinuxCLI().cmd('unshare --mount -- /bin/bash -x -c "' + cmd_line + '"')
+
+    @staticmethod
+    def cmd_unshare_self(cmd_line):
+        return LinuxCLI().cmd_unshare('PYTHONPATH=.. python -u ' + SELF_CMD_NAME + ' ' + cmd_line)
 
 
 class NetNSCLI(LinuxCLI):

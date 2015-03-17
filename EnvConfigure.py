@@ -15,8 +15,8 @@
 
 import sys
 
-from MTestExceptions import *
-from MTestRootServer import RootServer
+from PTM.Exceptions import *
+from PTM.RootServer import RootServer
 
 GlobalConfig = {
     'bridges':
@@ -58,7 +58,7 @@ GlobalConfig = {
 try:
 
     if len(sys.argv) < 2:
-        print 'Usage: python MTestEnvConfigure {boot|init|start|stop|shutdown|config} [options]'
+        print 'Usage: EnvConfigure {boot|init|start|stop|shutdown|config} [options]'
         raise ExitCleanException()
     else:
         cmd = sys.argv[1]
@@ -87,7 +87,7 @@ except ExitCleanException:
     exit(1)
 except ArgMismatchException as a:
     print 'Argument mismatch: ' + str(a)
-    print 'Usage: python MTestEnvConfigure {boot|init|start|stop|shutdown|config} [options]'
+    print 'Usage: EnvConfigure {boot|init|start|stop|shutdown|config} [options]'
     exit(2)
 except ObjectNotFoundException:
     exit(2)

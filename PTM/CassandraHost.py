@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestHost import Host
-from MTestExceptions import *
+from Host import Host
+from Exceptions import *
 import time
 
 
@@ -71,7 +71,7 @@ class CassandraHost(Host):
         self.cli.chown(var_run_dir, 'cassandra', 'cassandra')
 
     def start(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra ' + self.num_id + ' start')
+        self.cli.cmd_unshare_self('control cassandra ' + self.num_id + ' start')
         
         # Wait a couple seconds for the process to start before polling nodetool
         time.sleep(2)
@@ -89,7 +89,7 @@ class CassandraHost(Host):
                 time.sleep(2)
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control cassandra ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_self('control cassandra ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/cassandra.' + self.num_id, '/run/cassandra')

@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,15 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Host import Host
+import common.CLI
 
 
-class VMHost(Host):
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func)
+class TCPTrace:
 
-    def start(self):
-        pass
+    def __init__(self):
 
-    def stop(self):
-        pass
+
+    def listen(self, port='all', ip='all'):

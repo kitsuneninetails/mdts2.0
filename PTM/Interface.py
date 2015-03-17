@@ -12,17 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestNetworkObject import NetworkObject
+from NetworkObject import NetworkObject
 
 
 class Interface(NetworkObject):
-    def __init__(self, name, near_host):
+    def __init__(self, name, near_host, mac='default'):
         super(Interface, self).__init__(name, near_host.get_cli())
         self.near_host = near_host
         self.ip_list = []
+        self.mac = mac
 
     def setup(self):
         self.get_cli().cmd('ip link add dev ' + self.get_name())
+
+        if self.mac != 'default':
+            self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + self.mac)
+
         for ip in self.ip_list:
             self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.get_name())
 
@@ -34,6 +39,14 @@ class Interface(NetworkObject):
 
     def down(self):
         self.get_cli().cmd('ip link set dev ' + self.get_name() + ' down')
+
+    def change_mac(self, new_mac):
+        self.mac = new_mac
+        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + new_mac)
+
+    def add_ip(self, new_ip):
+        self.ip_list.append(new_ip)
+        self.get_cli().cmd('ip addr add ' + new_ip[0] + '/' + new_ip[1] + ' dev ' + self.get_name())
 
     def add_ips(self, ip_list):
         self.ip_list = ip_list

@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestExceptions import *
-from MTestHost import Host
+from Exceptions import *
+from Host import Host
 import time
 import socket
 
@@ -69,7 +69,7 @@ class ZookeeperHost(Host):
         self.cli.chown(var_run_dir, 'zookeeper', 'zookeeper')
 
     def start(self):
-        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper ' + self.num_id + ' start')
+        self.cli.cmd_unshare_self('control zookeeper ' + self.num_id + ' start')
 
         # Checking Zookeeper status
         retries = 0
@@ -93,7 +93,7 @@ class ZookeeperHost(Host):
                 pass
 
     def stop(self):
-        self.cli.cmd_unshare('python -u ./MTestEnvConfigure.py control zookeeper ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_self('control zookeeper ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/zookeeper.' + self.num_id, '/run/zookeeper')

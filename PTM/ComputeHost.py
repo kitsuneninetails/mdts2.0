@@ -12,10 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestHost import Host
-from MTestVMHost import VMHost
-from MTestCLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
-from MTestExceptions import *
+from Host import Host
+from VMHost import VMHost
+from common.CLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
+from Exceptions import *
 
 
 class ComputeHost(Host):
@@ -138,10 +138,10 @@ class ComputeHost(Host):
             self.cli.rm(pid_file)
             self.cli.write_to_file(pid_file, pid)
 
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute ' + self.num_id + ' start')
+        self.cli.cmd_unshare_self('control compute ' + self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare('python ./MTestEnvConfigure.py control compute ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_self('control compute ' + self.num_id + ' stop')
 
         if self.num_id == '1':
             pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'

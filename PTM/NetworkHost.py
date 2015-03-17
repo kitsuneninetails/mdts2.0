@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from MTestHost import Host
+from Host import Host
 
 
 class NetworkHost(Host):
