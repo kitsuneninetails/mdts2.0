@@ -13,123 +13,146 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from RootServer import RootServer
+import PhysicalTopologyConfig
+from Exceptions import *
 
-
-class MapConfigReader(object):
+class ConfigReader(object):
     def __init__(self):
         pass
 
+
+def get_val_from_map(src_map, desired_key, required=False, default=None):
+    if src_map is not None and desired_key in src_map:
+        return src_map[desired_key]
+    if required is True:
+        raise ArgMismatchException(desired_key)
+    return default
+
+
+def get_list_from_map(src_map, desired_key, required=False, default=list()):
+    if src_map is not None and desired_key in src_map:
+        return [x for x in src_map[desired_key]]
+    if required is True:
+        raise ArgMismatchException(desired_key)
+    return default
+
+
+def get_translation_from_map(func, src_map, desired_key, required=False, default=None):
+    if src_map is not None and desired_key in src_map:
+        return func(src_map[desired_key])
+    if required is True:
+        raise ArgMismatchException(desired_key)
+    return default
+
+
+def get_list_translation_from_map(func, src_map, desired_key, required=False, default=list()):
+    if src_map is not None and desired_key in src_map:
+        return [func(x) for x in src_map[desired_key]]
+    if required is True:
+        raise ArgMismatchException(desired_key)
+    return default
+
+
+def make_ip_def_from_config_object(cfg_obj):
+    ip = get_val_from_map(cfg_obj, 'ip', True)
+    subnet = get_val_from_map(cfg_obj, 'subnet', False, '32')
+    return PhysicalTopologyConfig.IPDef(ip, subnet)
+
+
+def make_bridge_link_def_from_config_object(cfg_obj):
+    bridge_name = get_val_from_map(cfg_obj, 'name', True)
+    bridge_host = get_val_from_map(cfg_obj, 'host', False, '')
+    return PhysicalTopologyConfig.BridgeLinkDef(bridge_host, bridge_name)
+
+
+def make_bridge_def_from_config_object(cfg_obj):
+    name = get_val_from_map(cfg_obj, 'name', True)
+    host = get_val_from_map(cfg_obj, 'host', False, '')
+    ips = get_list_translation_from_map(make_ip_def_from_config_object, cfg_obj, 'ip_list')
+    options = get_val_from_map(cfg_obj, 'options', False, '')
+    return PhysicalTopologyConfig.BridgeDef(name, host, ips, options)
+
+
+def make_interface_def_from_config_object(cfg_obj):
+    name = get_val_from_map(cfg_obj, 'name', True)
+    linked_bridge = get_translation_from_map(make_bridge_link_def_from_config_object, cfg_obj, 'bridge_link')
+    ips = get_list_translation_from_map(make_ip_def_from_config_object, cfg_obj, 'ip_list')
+    mac = get_val_from_map(cfg_obj, 'mac_address', False, 'default')
+    return PhysicalTopologyConfig.InterfaceDef(name, linked_bridge, ips, mac)
+
+
+def make_host_def_from_config_object(cfg_obj):
+    name = get_val_from_map(cfg_obj, 'name', True)
+    interfaces = get_list_translation_from_map(make_interface_def_from_config_object, cfg_obj, 'interface_list')
+    options = get_val_from_map(cfg_obj, 'options', False, '')
+    return PhysicalTopologyConfig.HostDef(name, interfaces, options)
+
+
+def make_target_interface_def_from_config_object(cfg_obj):
+    host = get_val_from_map(cfg_obj, 'host', True)
+    iface_name = get_val_from_map(cfg_obj, 'interface_name', True)
+    return PhysicalTopologyConfig.TargetInterfaceDef(host, iface_name)
+
+
+def make_peer_interface_def_from_config_object(cfg_obj):
+    near_if = get_translation_from_map(make_interface_def_from_config_object, cfg_obj, 'near_interface')
+    target = get_translation_from_map(make_target_interface_def_from_config_object, cfg_obj, 'target_interface')
+    return PhysicalTopologyConfig.PeerInterfaceDef(near_if, target)
+
+
+def make_router_def_from_config_object(cfg_obj):
+    name = get_val_from_map(cfg_obj, 'name', True)
+    interfaces = get_list_translation_from_map(make_peer_interface_def_from_config_object, cfg_obj,
+                                               'peer_interface_list')
+    return PhysicalTopologyConfig.RouterDef(name, interfaces)
+
+
+def make_vm_def_from_config_object(cfg_obj):
+    hv_name = get_val_from_map(cfg_obj, 'hypervisor_host', True)
+    vm_info = get_translation_from_map(make_host_def_from_config_object, cfg_obj, 'host')
+    return PhysicalTopologyConfig.VMDef(hv_name, vm_info)
+
+
+def make_vlan_def_from_config_object(cfg_obj):
+    vlan_id = get_val_from_map(cfg_obj, 'vlan_id', True)
+    hosts = get_list_translation_from_map(make_host_def_from_config_object, cfg_obj, 'host_list')
+    return PhysicalTopologyConfig.VLANDef(vlan_id, hosts)
+
+
+class MapConfigReader(ConfigReader):
+    def __init__(self):
+        super(MapConfigReader, self).__init__()
+
     @staticmethod
-    def root_server_from_python_map(cfg_obj):
-        rt = RootServer()
+    def get_physical_topology_config(python_config):
+        try:
+            pt = PhysicalTopologyConfig.PhysicalTopologyConfig()
 
-        for i in cfg_obj['bridges']:
-            br_cfg = BridgeConfig(i)
-            rt.config_bridge(br_cfg.get_name(), br_cfg.get_ip_list())
+            for i in python_config["bridges"]:
+                pt.add_bridge_def(make_bridge_def_from_config_object(i))
 
-        for i in cfg_obj['zookeeper']:
-            host_cfg = HostConfig(i)
-            rt.config_zookeeper(host_cfg.get_name(),
-                                host_cfg.get_linked_bridge(),
-                                host_cfg.get_ip_list())
+            for i in python_config["zookeepers"]:
+                pt.add_zookeeper_def(make_host_def_from_config_object(i))
 
-        for i in cfg_obj['cassandra']:
-            host_cfg = HostConfig(i)
-            rt.config_cassandra(host_cfg.get_name(),
-                                host_cfg.get_linked_bridge(),
-                                host_cfg.get_ip_list(),
-                                host_cfg.get_extra_data())
+            for i in python_config["cassandras"]:
+                pt.add_cassandra_def(make_host_def_from_config_object(i))
 
-        for i in cfg_obj['compute']:
-            host_cfg = HostConfig(i)
-            rt.config_compute(host_cfg.get_name(),
-                              host_cfg.get_linked_bridge(),
-                              host_cfg.get_ip_list())
+            for i in python_config["computes"]:
+                pt.add_compute_def(make_host_def_from_config_object(i))
 
-        for i in cfg_obj['routers']:
-            host_cfg = RouterConfig(i)
-            rt.config_router(host_cfg.get_name(),
-                             host_cfg.get_interfaces())
+            for i in python_config["routers"]:
+                pt.add_router_def(make_router_def_from_config_object(i))
 
-        for i in cfg_obj['hosted_vms']:
-            vm_cfg = VMConfig(i)
-            rt.config_vm(vm_cfg.get_vm().get_name(), vm_cfg.get_name(),
-                         vm_cfg.get_vm().get_linked_bridge(), vm_cfg.get_vm().get_ip_list())
+            for i in python_config["hosts"]:
+                pt.add_host_def(make_host_def_from_config_object(i))
 
-        for i in cfg_obj['vlans']:
-            pass
+            for i in python_config["hosted_vms"]:
+                pt.add_vm_def(make_vm_def_from_config_object(i))
 
-        return rt
+            for i in python_config["vlans"]:
+                pt.add_vlan_def(make_vlan_def_from_config_object(i))
 
-
-class ConfigObjectBase(object):
-    def __init__(self, name):
-        self.name = name
-
-    def get_name(self):
-        return self.name
-
-
-class IPListConfig(ConfigObjectBase):
-    def __init__(self, name, ip_tuple):
-        super(IPListConfig, self).__init__(name)
-        self.ip_list = ip_tuple
-
-    def get_ip_list(self):
-        return self.ip_list
-
-
-class BridgeConfig(IPListConfig):
-    def __init__(self, name_ip_tuple):
-        super(BridgeConfig, self).__init__(name_ip_tuple[0], name_ip_tuple[2])
-        self.base_host = name_ip_tuple[1]
-
-    def get_base_host(self):
-        return self.base_host
-
-
-class HostConfig(IPListConfig):
-    def __init__(self, name_ip_tuple):
-        super(HostConfig, self).__init__(name_ip_tuple[0], name_ip_tuple[2])
-        self.linked_bridge = name_ip_tuple[1]
-        self.extra_data = name_ip_tuple[3:]
-
-    def get_linked_bridge(self):
-        return self.linked_bridge
-
-    def get_extra_data(self):
-        return self.extra_data
-
-
-class InterfaceConfig(IPListConfig):
-    def __init__(self, iface_tuple):
-        super(InterfaceConfig, self).__init__(iface_tuple[0], iface_tuple[2])
-        self.far_host_name = iface_tuple[1][0]
-        self.far_host_iface_name = iface_tuple[1][1]
-
-    def get_far_host_name(self):
-        return self.far_host_name
-
-    def get_far_host_interface_name(self):
-        return self.far_host_iface_name
-
-
-class RouterConfig(ConfigObjectBase):
-    def __init__(self, host_iface_tuple):
-        super(RouterConfig, self).__init__(host_iface_tuple[0])
-        self.interfaces = []
-        for iface_def in host_iface_tuple[1]:
-            self.interfaces.append(InterfaceConfig(iface_def))
-
-    def get_interfaces(self):
-        return self.interfaces
-
-
-class VMConfig(ConfigObjectBase):
-    def __init__(self, host_tuple):
-        super(VMConfig, self).__init__(host_tuple[0])
-        self.vm = HostConfig(host_tuple[1:])
-
-    def get_vm(self):
-        return self.vm
+            return pt
+        except ArgMismatchException as e:
+            print 'Configuration error: ' + str(e) + ' is required, but not found in config object'
+            raise e

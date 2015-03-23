@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,28 +22,13 @@ from Exceptions import *
 class ComputeHost(Host):
     global_id = 1
 
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(ComputeHost, self).__init__(name, cli, host_create_func, host_remove_func)
+    def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        super(ComputeHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.vms = []
         self.num_id = str(ComputeHost.global_id)
         ComputeHost.global_id += 1
         self.zookeeper_ips = []
         self.cassandra_ips = []
-
-    def create_vm(self, name):
-        new_host = VMHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD)
-        self.vms.append(new_host)
-        return new_host
-
-    def setup_vms(self):
-        for host in self.vms:
-            host.setup()
-            self.setup_host_interfaces(host)
-
-    def cleanup_vms(self):
-        for host in self.vms:
-            self.cleanup_interfaces(host)
-            host.cleanup()
 
     def print_config(self, indent=0):
         super(ComputeHost, self).print_config(indent)
@@ -54,8 +40,9 @@ class ComputeHost(Host):
             for vm in self.vms:
                 vm.print_config(indent + 2)
                 print ('    ' * (indent + 4)) + 'Interfaces:'
-                for i in self.get_interfaces_for_host(vm.get_name()):
-                    i.print_config(indent + 5)
+                for name,i in self.get_interfaces_for_host(vm.get_name()).items():
+                    print ('    ' * (indent + 5)) + name
+                    i.print_config(indent + 6)
 
     def prepare_files(self):
         etc_dir = '/etc/midolman.' + self.num_id
@@ -121,12 +108,12 @@ class ComputeHost(Host):
 
         mmenv = etc_dir + '/midolman-env.sh'
 
-    # Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
+        # Allow connecting via debugger - MM 1 listens on 1411, MM 2 on 1412, MM 3 on 1413
         self.cli.regex_file(mmenv, '/runjdwp/s/^..//g')
         self.cli.regex_file(mmenv, '/runjdwp/s/1414/141' + self.num_id + '/g')
 
-    # Setting memory to the ones before
-    # https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
+        # Setting memory to the ones before
+        # https://github.com/midokura/midonet/commit/65ace0e84265cd777b2855d15fce60148abd9330
         self.cli.regex_file(mmenv, 's/MAX_HEAP_SIZE=.*/MAX_HEAP_SIZE="300M"/')
         self.cli.regex_file(mmenv, 's/HEAP_NEWSIZE=.*/HEAP_NEWSIZE="200M"/')
 
@@ -175,8 +162,25 @@ class ComputeHost(Host):
             pid = self.cli.read_from_file('/run/midolman/pid')
             self.cli.cmd('kill ' + str(pid))
 
+    def create_vm(self, name):
+        new_host = VMHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
+        self.vms.append(new_host)
+        return new_host
+
+    def setup_vms(self):
+        for vm in self.vms:
+            print 'Booting vm ' + vm.name
+            vm.setup()
+            self.setup_host_interfaces(vm)
+
+    def cleanup_vms(self):
+        for host in self.vms:
+            self.cleanup_interfaces(host)
+            host.cleanup()
+
     def start_vms(self):
         for host in self.vms:
+            print 'Starting vm ' + host.name
             host.start()
 
     def stop_vms(self):

@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +17,8 @@ from Host import Host
 
 
 class VMHost(Host):
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func)
+    def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        super(VMHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
 
     def start(self):
         pass

@@ -16,10 +16,11 @@ from NetworkObject import NetworkObject
 
 
 class Interface(NetworkObject):
-    def __init__(self, name, near_host, mac='default'):
+    def __init__(self, name, near_host, linked_bridge='', ip_list=list(), mac='default'):
         super(Interface, self).__init__(name, near_host.get_cli())
         self.near_host = near_host
-        self.ip_list = []
+        self.linked_bridge = linked_bridge
+        self.ip_list = ip_list
         self.mac = mac
 
     def setup(self):
@@ -48,20 +49,30 @@ class Interface(NetworkObject):
         self.ip_list.append(new_ip)
         self.get_cli().cmd('ip addr add ' + new_ip[0] + '/' + new_ip[1] + ' dev ' + self.get_name())
 
-    def add_ips(self, ip_list):
-        self.ip_list = ip_list
+    def link_vlan(self, vlan_id, ip_list):
+        vlan_iface = self.name + '.' + str(vlan_id)
+        self.get_cli().cmd('ip link add link ' + self.name +
+                           ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
+        self.get_cli().cmd('ip link set dev ' + vlan_iface + ' up')
+        for ip in ip_list:
+            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + vlan_iface)
 
-    def get_ips(self):
-        return self.ip_list
-        
     def add_route(self, route_ip, gw_ip):
         self.get_cli().cmd('ip route add ' + route_ip[0] + '/' + route_ip[1] + ' via ' + gw_ip[0])
 
     def del_route(self, route_ip):
         self.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
 
+
+    def get_host_name(self):
+        return self.near_host.get_name()
+
+    def get_interface_name(self):
+        return self.name
+
     def get_near_host(self):
         return self.near_host
 
     def print_config(self, indent=0):
-        print ('    ' * indent) + self.name + ' with ips: ' + str(self.ip_list)
+        link = ' linked on bridge: ' + self.linked_bridge if self.linked_bridge != '' else ''
+        print ('    ' * indent) + self.name + ' with ips: ' + str(self.ip_list) + link

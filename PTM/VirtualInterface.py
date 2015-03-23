@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +17,9 @@ from Interface import Interface
 
 
 class VirtualInterface(Interface):
-    def __init__(self, name, near_host, far_iface_name, far_host, peer_ext='.p'):
-        super(VirtualInterface, self).__init__(name, near_host)
+    def __init__(self, name, near_host, far_iface_name, far_host, linked_bridge='',
+                 ip_list=list(), mac='default', peer_ext='.p'):
+        super(VirtualInterface, self).__init__(name, near_host, linked_bridge, ip_list, mac)
         self.peer_name = self.get_name() + peer_ext
         self.far_host = far_host
         self.far_iface_name = far_iface_name
@@ -48,12 +50,32 @@ class VirtualInterface(Interface):
     def del_peer_route(self, route_ip):
         self.far_host.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
 
+    def link_vlan(self, vlan_id, ip_list):
+        vlan_iface = self.far_iface_name + '.' + str(vlan_id)
+        self.far_host.get_cli().cmd('ip link add link ' + self.far_iface_name +
+                           ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
+        self.far_host.get_cli().cmd('ip link set dev ' + vlan_iface + ' up')
+        for ip in ip_list:
+            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + vlan_iface)
+
+    def unlink_vlan(self, vlan_id):
+        vlan_iface = self.far_iface_name + '.' + str(vlan_id)
+        self.far_host.get_cli().cmd('ip link set dev ' + vlan_iface + ' down')
+        self.far_host.get_cli().cmd('ip link delete ' + self.far_iface_name +
+                           ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
+
     def get_far_host(self):
         return self.far_host
 
-    def get_far_host_interface_name(self):
+    def get_host_name(self):
+        return self.far_host.get_name()
+
+    def get_interface_name(self):
         return self.far_iface_name
 
     def print_config(self, indent=0):
-        print ('    ' * indent) + self.name + ' linked as ' + self.far_host.get_name() + '/' \
-            + self.far_iface_name + ' with ips: ' + str(self.ip_list)
+        link = ' linked on bridge ' + self.linked_bridge + ', ' if self.linked_bridge != '' else ' '
+        print ('    ' * indent) + self.name + link + 'peered as ' + self.far_host.get_name() + \
+              '/' + self.far_iface_name + ' with ips: '
+        for ip in self.ip_list:
+            print ('    ' * (indent + 1)) +  str(ip)

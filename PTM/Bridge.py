@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,6 +17,9 @@ from Interface import Interface
 
 
 class Bridge(Interface):
+    def __init__(self, name, near_host, ip_list=list(), mac='default'):
+        super(Bridge, self).__init__(name, near_host, '', ip_list, mac)
+        self.options = []
 
     def setup(self):
         self.cli.cmd('brctl addbr ' + self.get_name())
@@ -27,6 +31,9 @@ class Bridge(Interface):
 
     def up(self):
         self.cli.cmd('ip link set dev ' + self.get_name() + ' up')
+        for i in self.options:
+            if i == 'stp':
+                self.cli.cmd('brctl stp ' + self.get_name() + ' on')
 
     def down(self):
         self.cli.cmd('ip link set dev ' + self.get_name() + ' down')
@@ -36,3 +43,6 @@ class Bridge(Interface):
 
     def del_link_interface(self, iface):
         self.cli.cmd('brctl delif ' + self.get_name() + ' ' + iface)
+
+    def set_options(self, option_list):
+        self.options = option_list

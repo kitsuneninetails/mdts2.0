@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +22,8 @@ import socket
 class ZookeeperHost(Host):
     global_id = 1
 
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(ZookeeperHost, self).__init__(name, cli, host_create_func, host_remove_func)
+    def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        super(ZookeeperHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.zookeeper_ips = []
         self.num_id = str(ZookeeperHost.global_id)
         ZookeeperHost.global_id += 1
@@ -43,8 +44,7 @@ class ZookeeperHost(Host):
 
             write_string = ''
             for j in range(0, len(self.zookeeper_ips)):
-                write_string = write_string + 'server.' + str(j + 1) + '=' + \
-                               str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
+                write_string += 'server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
 
             print 'write_str=' + write_string
             self.cli.write_to_file(etc_dir + '/conf/zoo.cfg', write_string, append=True)

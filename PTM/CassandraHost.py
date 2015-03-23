@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,8 +21,8 @@ import time
 class CassandraHost(Host):
     global_id = 1
 
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(CassandraHost, self).__init__(name, cli, host_create_func, host_remove_func)
+    def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        super(CassandraHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.cassandra_ips = []
         self.num_id = str(CassandraHost.global_id)
         CassandraHost.global_id += 1

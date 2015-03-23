@@ -1,3 +1,4 @@
+__author__ = 'micucci'
 # Copyright 2015 Midokura SARL
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,13 +14,14 @@
 # limitations under the License.
 
 from Host import Host
+from os import path
 
 
 class RouterHost(Host):
     global_id = 1
 
-    def __init__(self, name, cli, host_create_func, host_remove_func):
-        super(RouterHost, self).__init__(name, cli, host_create_func, host_remove_func)
+    def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        super(RouterHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.num_id = str(RouterHost.global_id)
         RouterHost.global_id += 1
 
@@ -28,6 +30,7 @@ class RouterHost(Host):
         var_lib_dir = '/var/lib/quagga.' + self.num_id
         var_log_dir = '/var/log/quagga.' + self.num_id
         var_run_dir = '/run/quagga.' + self.num_id
+        this_dir = path.dirname(path.abspath(__file__))
 
         self.cli.rm(etc_dir)
         self.cli.rm(var_log_dir)
@@ -48,10 +51,10 @@ class RouterHost(Host):
             self.cli.chown(var_run_dir, 'quagga', 'quagga')
 
         if self.num_id is '1':
-            self.cli.copy_dir('scripts/quagga.1', etc_dir)
+            self.cli.copy_dir(this_dir + '/scripts/quagga.1', etc_dir)
         else:
             mmconf_file = etc_dir + '/midolman.conf'
-            self.cli.copy_dir('scripts/quagga.2+', etc_dir)
+            self.cli.copy_dir(this_dir + '/scripts/quagga.2+', etc_dir)
             self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_keepalive=1/')
             self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_holdtime=3/')
             self.cli.regex_file(mmconf_file, 's/^\[midolman\]/\[midolman\]\\nbgp_connect_retry=1/')
