@@ -16,7 +16,7 @@ __author__ = 'micucci'
 from Host import Host
 from VMHost import VMHost
 from common.CLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
-from Exceptions import *
+from common.Exceptions import *
 
 
 class ComputeHost(Host):
@@ -24,7 +24,7 @@ class ComputeHost(Host):
 
     def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
         super(ComputeHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
-        self.vms = []
+        self.vms = {}
         self.num_id = str(ComputeHost.global_id)
         ComputeHost.global_id += 1
         self.zookeeper_ips = []
@@ -33,8 +33,8 @@ class ComputeHost(Host):
     def print_config(self, indent=0):
         super(ComputeHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
-        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + str(self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.cassandra_ips)
         if len(self.vms) > 0:
             print ('    ' * (indent + 1)) + 'Hosted vms: '
             for vm in self.vms:
@@ -125,10 +125,10 @@ class ComputeHost(Host):
             self.cli.rm(pid_file)
             self.cli.write_to_file(pid_file, pid)
 
-        self.cli.cmd_unshare_self('control compute ' + self.num_id + ' start')
+        self.cli.cmd_unshare_control('control compute ' + self.num_id + ' start')
 
     def stop(self):
-        self.cli.cmd_unshare_self('control compute ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_control('control compute ' + self.num_id + ' stop')
 
         if self.num_id == '1':
             pid_file = '/run/midolman.' + self.num_id + '/dnsmasq.pid'
@@ -164,25 +164,30 @@ class ComputeHost(Host):
 
     def create_vm(self, name):
         new_host = VMHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.vms.append(new_host)
+        self.vms[name] = new_host
         return new_host
 
+    def get_vm(self, name):
+        if name not in self.vms:
+            raise HostNotFoundException(name)
+        return self.vms[name]
+
     def setup_vms(self):
-        for vm in self.vms:
-            print 'Booting vm ' + vm.name
+        for name, vm in self.vms.iteritems():
+            print 'Booting vm ' + name
             vm.setup()
             self.setup_host_interfaces(vm)
 
     def cleanup_vms(self):
-        for host in self.vms:
-            self.cleanup_interfaces(host)
-            host.cleanup()
+        for name, vm in self.vms.iteritems():
+            self.cleanup_interfaces(vm)
+            vm.cleanup()
 
     def start_vms(self):
-        for host in self.vms:
-            print 'Starting vm ' + host.name
-            host.start()
+        for name, vm in self.vms.iteritems():
+            print 'Starting vm ' + name
+            vm.start()
 
     def stop_vms(self):
-        for host in self.vms:
-            host.stop()
+        for name, vm in self.vms.iteritems():
+            vm.stop()

@@ -13,7 +13,7 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Exceptions import *
+from common.Exceptions import *
 from NetworkObject import NetworkObject
 from VirtualInterface import VirtualInterface
 
@@ -78,7 +78,7 @@ class Host(NetworkObject):
 
     def add_virt_interface(self, name, far_iface_name, far_host, linked_bridge, ip_list, mac='default'):
         new_if = VirtualInterface(name, self, far_iface_name, far_host, linked_bridge, ip_list, mac, '.p')
-        if far_host not in self.interfaces_for_host:
+        if far_host.get_name() not in self.interfaces_for_host:
             self.interfaces_for_host[far_host.get_name()] = {}
         self.interfaces_for_host[far_host.get_name()][far_iface_name] = new_if
         return new_if

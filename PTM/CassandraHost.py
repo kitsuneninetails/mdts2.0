@@ -13,9 +13,10 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Host import Host
-from Exceptions import *
 import time
+
+from Host import Host
+from common.Exceptions import *
 
 
 class CassandraHost(Host):
@@ -33,8 +34,8 @@ class CassandraHost(Host):
         super(CassandraHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
         print ('    ' * (indent + 1)) + 'Init-token: ' + self.init_token
-        print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
-        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + str(self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip[0] + '/' + self.ip[1]
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.cassandra_ips)
 
     def prepare_files(self):
         if len(self.cassandra_ips) is not 0:
@@ -72,7 +73,7 @@ class CassandraHost(Host):
         self.cli.chown(var_run_dir, 'cassandra', 'cassandra')
 
     def start(self):
-        self.cli.cmd_unshare_self('control cassandra ' + self.num_id + ' start')
+        self.cli.cmd_unshare_control('control cassandra ' + self.num_id + ' start')
         
         # Wait a couple seconds for the process to start before polling nodetool
         time.sleep(2)
@@ -90,7 +91,7 @@ class CassandraHost(Host):
                 time.sleep(2)
 
     def stop(self):
-        self.cli.cmd_unshare_self('control cassandra ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_control('control cassandra ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/cassandra.' + self.num_id, '/run/cassandra')

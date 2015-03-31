@@ -14,7 +14,7 @@ __author__ = 'micucci'
 # limitations under the License.
 
 import PhysicalTopologyConfig
-from Exceptions import *
+from common.Exceptions import *
 
 class ConfigReader(object):
     def __init__(self):

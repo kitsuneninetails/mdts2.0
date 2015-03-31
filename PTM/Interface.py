@@ -75,4 +75,4 @@ class Interface(NetworkObject):
 
     def print_config(self, indent=0):
         link = ' linked on bridge: ' + self.linked_bridge if self.linked_bridge != '' else ''
-        print ('    ' * indent) + self.name + ' with ips: ' + str(self.ip_list) + link
+        print ('    ' * indent) + self.name + ' with ips: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.ip_list)

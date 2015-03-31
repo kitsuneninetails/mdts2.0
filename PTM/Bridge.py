@@ -17,9 +17,9 @@ from Interface import Interface
 
 
 class Bridge(Interface):
-    def __init__(self, name, near_host, ip_list=list(), mac='default'):
+    def __init__(self, name, near_host, options=list(), ip_list=list(), mac='default'):
         super(Bridge, self).__init__(name, near_host, '', ip_list, mac)
-        self.options = []
+        self.options = options
 
     def setup(self):
         self.cli.cmd('brctl addbr ' + self.get_name())
@@ -44,5 +44,3 @@ class Bridge(Interface):
     def del_link_interface(self, iface):
         self.cli.cmd('brctl delif ' + self.get_name() + ' ' + iface)
 
-    def set_options(self, option_list):
-        self.options = option_list

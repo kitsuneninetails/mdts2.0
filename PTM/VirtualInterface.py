@@ -76,6 +76,4 @@ class VirtualInterface(Interface):
     def print_config(self, indent=0):
         link = ' linked on bridge ' + self.linked_bridge + ', ' if self.linked_bridge != '' else ' '
         print ('    ' * indent) + self.name + link + 'peered as ' + self.far_host.get_name() + \
-              '/' + self.far_iface_name + ' with ips: '
-        for ip in self.ip_list:
-            print ('    ' * (indent + 1)) +  str(ip)
+              '/' + self.far_iface_name + ' with ips: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.ip_list)

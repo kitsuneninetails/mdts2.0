@@ -13,10 +13,11 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Exceptions import *
-from Host import Host
 import time
 import socket
+
+from common.Exceptions import *
+from Host import Host
 
 
 class ZookeeperHost(Host):
@@ -33,8 +34,9 @@ class ZookeeperHost(Host):
     def print_config(self, indent=0):
         super(ZookeeperHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + str(self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip[0] + '/' + self.ip[1]
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.zookeeper_ips)
+
 
     def prepare_files(self):
         if self.num_id == '1':
@@ -69,7 +71,7 @@ class ZookeeperHost(Host):
         self.cli.chown(var_run_dir, 'zookeeper', 'zookeeper')
 
     def start(self):
-        self.cli.cmd_unshare_self('control zookeeper ' + self.num_id + ' start')
+        self.cli.cmd_unshare_control('control zookeeper ' + self.num_id + ' start')
 
         # Checking Zookeeper status
         retries = 0
@@ -93,7 +95,7 @@ class ZookeeperHost(Host):
                 pass
 
     def stop(self):
-        self.cli.cmd_unshare_self('control zookeeper ' + self.num_id + ' stop')
+        self.cli.cmd_unshare_control('control zookeeper ' + self.num_id + ' stop')
 
     def mount_shares(self):
         self.cli.mount('/run/zookeeper.' + self.num_id, '/run/zookeeper')

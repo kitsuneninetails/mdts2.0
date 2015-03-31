@@ -13,7 +13,7 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from Exceptions import *
+from common.Exceptions import *
 from Host import Host
 from Bridge import Bridge
 from ZookeeperHost import ZookeeperHost
@@ -29,16 +29,27 @@ class RootServer(Host):
     def __init__(self):
         super(RootServer, self).__init__('root', LinuxCLI(), lambda name: None, lambda name: None, self)
         self.zookeeper_hosts = []
+        """ :type: list[ZookeeperHost]"""
         self.cassandra_hosts = []
+        """ :type: list[CassandraHost]"""
         self.compute_hosts = []
+        """ :type: list[ComputeHost]"""
         self.network_hosts = []
+        """ :type: list[NetworkHost]"""
         self.hosted_vms = []
+        """ :type: list[VM]"""
         self.vlans = []
+        """ :type: list[VLAN]"""
         self.routers = []
+        """ :type: list[Router]"""
         self.hosts = {}
+        """ :type: dict[str, Host]"""
         self.zookeeper_ips = []
+        """ :type: list[Host]"""
         self.cassandra_ips = []
+        """ :type: list[Host]"""
         self.generic_hosts = []
+        """ :type: list[Host]"""
 
     def print_config(self, indent=0):
         print '[bridges]'
@@ -87,15 +98,15 @@ class RootServer(Host):
 
     def add_host(self, name, host):
         self.hosts[name] = host
-        self.interfaces_for_host[name] = []
+        self.interfaces_for_host[name] = {}
 
     def get_host(self, name):
         if name not in self.hosts:
             raise HostNotFoundException(name)
         return self.hosts[name]
 
-    def add_bridge(self, name, ip_list):
-        new_bridge = Bridge(name, self, ip_list)
+    def add_bridge(self, name, options=list(), ip_list=list(), mac='default'):
+        new_bridge = Bridge(name, self, options, ip_list, 'default')
         self.bridges[name] = new_bridge
         return new_bridge
 
@@ -110,8 +121,8 @@ class RootServer(Host):
 
         for i in ptc.bridge_config:
             rt.config_bridge(i.name,
-                             [(ip.ip_address, ip.subnet_mask) for ip in i.ip_list],
-                             i.options)
+                             str(i.options).split(' '),
+                             [(ip.ip_address, ip.subnet_mask) for ip in i.ip_list])
 
         for i in ptc.zookeeper_config:
             if len(i.interface_list) > 0:
@@ -178,50 +189,42 @@ class RootServer(Host):
 
         return rt
 
-    def init(self):
-        for i in self.zookeeper_hosts:
-            i.zookeeper_ips = self.zookeeper_ips
-
-        for i in self.cassandra_hosts:
-            i.cassandra_ips = self.cassandra_ips
-
-        net_host = NetworkHost('net-node', LinuxCLI(), lambda name: None, lambda name: None, self)
-        net_host.zookeeper_ips = self.zookeeper_ips
-        self.network_hosts.append(net_host)
-
-    def config_bridge(self, name, ip_list, options):
-        b = self.add_bridge(name, ip_list)
-        b.set_options(options)
+    def config_bridge(self, name, options=list(), ip_list=list(), mac='default'):
+        b = self.add_bridge(name, options, ip_list, mac)
 
     def config_zookeeper(self, name, interface):
-        # interface is a map: {iface, bridge, ips, mac}
+        """
+        :type interface: dict[iface, str]
+        """
         h = ZookeeperHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
         self.add_host(name, h)
 
         self.add_virt_interface('veth' + name,
                                 interface['iface'],
                                 h,
-                                interface['bridge'],
-                                interface['ips'],
-                                interface['mac'])
+                                interface['bridge'] if 'bridge' in interface else '',
+                                interface['ips'] if 'ips' in interface else [],
+                                interface['mac'] if 'mac' in interface else 'default')
 
         self.zookeeper_hosts.append(h)
         self.zookeeper_ips.append(interface['ips'][0])
         h.ip = interface['ips'][0]
 
-    def config_cassandra(self, name, interface, extra_data):
+    def config_cassandra(self, name, interface, extra_data=list('')):
         # interface is a map: {iface, bridge, ips, mac}
         h = CassandraHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
         self.add_host(name, h)
 
+        if len(extra_data) is 0:
+            raise ArgMismatchException('expected init_token when creating cassandra host')
         h.init_token = extra_data[0]
 
         self.add_virt_interface('veth' + name,
                                 interface['iface'],
                                 h,
-                                interface['bridge'],
-                                interface['ips'],
-                                interface['mac'])
+                                interface['bridge'] if 'bridge' in interface else '',
+                                interface['ips'] if 'ips' in interface else [],
+                                interface['mac'] if 'mac' in interface else 'default')
 
         self.cassandra_hosts.append(h)
         self.cassandra_ips.append(interface['ips'][0])
@@ -238,9 +241,9 @@ class RootServer(Host):
         self.add_virt_interface('veth' + name,
                                 interface['iface'],
                                 h,
-                                interface['bridge'],
-                                interface['ips'],
-                                interface['mac'])
+                                interface['bridge'] if 'bridge' in interface else '',
+                                interface['ips'] if 'ips' in interface else [],
+                                interface['mac'] if 'mac' in interface else 'default')
 
         self.compute_hosts.append(h)
 
@@ -253,24 +256,29 @@ class RootServer(Host):
             h.add_hwinterface(iface['iface'],
                               iface['target_iface'],
                               self.get_host(iface['target_host']),
-                              iface['bridge'],
-                              iface['ips'],
-                              iface['mac'])
+                              iface['bridge'] if 'bridge' in iface else '',
+                              iface['ips'] if 'ips' in iface else [],
+                              iface['mac'] if 'mac' in iface else 'default')
 
         self.routers.append(h)
 
     def config_vm(self, hv_host_name, vm_name, interfaces):
         # interface is a map: {iface, bridge, ips, mac}
         hv_host = self.get_host(hv_host_name) if hv_host_name != '' else self
+        """ :type: ComputeHost"""
+
+        if not isinstance(hv_host, ComputeHost):
+            raise HostNotFoundException(hv_host_name)
+
         v = hv_host.create_vm(vm_name)
 
         for iface in interfaces:
             hv_host.add_virt_interface('veth' + vm_name,
                                        iface['iface'],
                                        v,
-                                       iface['bridge'],
-                                       iface['ips'],
-                                       iface['mac'])
+                                       iface['bridge'] if 'bridge' in iface else '',
+                                       iface['ips'] if 'ips' in iface else [],
+                                       iface['mac'] if 'mac' in iface else 'default')
 
     def config_vlan(self, vlan_id, vlan_if_list):
         vlan = VLAN(vlan_id, self)
@@ -289,11 +297,34 @@ class RootServer(Host):
             self.add_virt_interface('veth' + name,
                                     iface['iface'],
                                     h,
-                                    iface['bridge'],
-                                    iface['ips'],
-                                    iface['mac'])
+                                    iface['bridge'] if 'bridge' in iface else '',
+                                    iface['ips'] if 'ips' in iface else [],
+                                    iface['mac'] if 'mac' in iface else 'default')
 
         self.generic_hosts.append(h)
+
+    def init(self):
+        for i in self.zookeeper_hosts:
+            i.zookeeper_ips = self.zookeeper_ips
+
+        for i in self.cassandra_hosts:
+            i.cassandra_ips = self.cassandra_ips
+
+        net_host = NetworkHost('net-node', LinuxCLI(), lambda name: None, lambda name: None, self)
+        net_host.zookeeper_ips = self.zookeeper_ips
+        self.network_hosts.append(net_host)
+
+    def prepare_files(self):
+        for h in self.network_hosts:
+            h.prepare_files()
+        for h in self.cassandra_hosts:
+            h.prepare_files()
+        for h in self.zookeeper_hosts:
+            h.prepare_files()
+        for h in self.compute_hosts:
+            h.prepare_files()
+        for r in self.routers:
+            r.prepare_files()
 
     def setup(self):
         for b in self.bridges.values():
@@ -347,18 +378,6 @@ class RootServer(Host):
             b.down()
             b.cleanup()
 
-    def prepare_files(self):
-        for h in self.network_hosts:
-            h.prepare_files()
-        for h in self.cassandra_hosts:
-            h.prepare_files()
-        for h in self.zookeeper_hosts:
-            h.prepare_files()
-        for h in self.compute_hosts:
-            h.prepare_files()
-        for r in self.routers:
-            r.prepare_files()
-
     def start(self):
         for h in self.cassandra_hosts:
             h.start()
@@ -396,7 +415,7 @@ class RootServer(Host):
 
     def control(self, *args):
         if len(args) < 3:
-            print 'EnvConfigure.py control requires <target> <id> <command> <optional_args>'
+            print 'mdts-ctl.py control requires <target> <id> <command> <optional_args>'
             raise ArgMismatchException(''.join(args))
 
         control_target = args[0]

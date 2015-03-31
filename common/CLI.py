@@ -19,27 +19,49 @@ DEBUG = False
 
 CREATENSCMD = lambda name: LinuxCLI().cmd('ip netns add ' + name)
 REMOVENSCMD = lambda name: LinuxCLI().cmd('ip netns del ' + name)
-SELF_CMD_NAME = './EnvConfigure.py'
+CONTROL_CMD_NAME = './mdts-ctl.py'
 
 
 class LinuxCLI(object):
-    def cmd(self, cmd_line, return_output=False, dbg=DEBUG):
+    def __init__(self, priv=True, debug=False):
+        self.env_map = None
+        """ :type: dict[str, str]"""
+        self.priv = priv
+        """ :type: bool"""
+        self.debug = debug
+        """ :type: bool"""
 
-        if dbg is True:
+    def add_environment_variable(self, name, val):
+        if (self.env_map is None):
+            self.env_map = {}
+        self.env_map[name] = val
+
+    def remove_environment_variable(self, name):
+        if (self.env_map is not None):
+            self.env_map.pop(name)
+
+    def cmd(self, cmd_line, return_output=False):
+        if self.debug is True:
             cmd = "echo '" + self.create_cmd(cmd_line) + "'"
         else:
-            cmd = self.create_cmd(cmd_line)
+            if self.priv is True:
+                cmd = self.create_cmd_priv(cmd_line)
+            else:
+                cmd = self.create_cmd(cmd_line)
         print '>>> ' + cmd
-        if dbg is True or return_output is False:
-            return subprocess.call(cmd, shell=True)
+        if self.debug is True or return_output is False:
+            return subprocess.call(cmd, shell=True, env=self.env_map)
         else:
             try:
-                p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+                p = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, env=self.env_map)
                 return p.stdout.readline()
             except subprocess.CalledProcessError:
                 return -1
 
     def create_cmd(self, cmd_line):
+        return cmd_line
+
+    def create_cmd_priv(self, cmd_line):
         return 'sudo ' + cmd_line
 
     @staticmethod
@@ -141,8 +163,8 @@ class LinuxCLI(object):
         return LinuxCLI().cmd('unshare --mount -- /bin/bash -x -c "' + cmd_line + '"')
 
     @staticmethod
-    def cmd_unshare_self(cmd_line):
-        return LinuxCLI().cmd_unshare('PYTHONPATH=.. python -u ' + SELF_CMD_NAME + ' ' + cmd_line)
+    def cmd_unshare_control(cmd_line):
+        return LinuxCLI().cmd_unshare('PYTHONPATH=.. python -u ' + CONTROL_CMD_NAME + ' ' + cmd_line)
 
 
 class NetNSCLI(LinuxCLI):
@@ -151,3 +173,6 @@ class NetNSCLI(LinuxCLI):
 
     def create_cmd(self, cmd_line):
         return super(NetNSCLI, self).create_cmd('ip netns exec ' + self.name + ' ' + cmd_line)
+
+    def create_cmd_priv(self, cmd_line):
+        return super(NetNSCLI, self).create_cmd_priv('ip netns exec ' + self.name + ' ' + cmd_line)
