@@ -191,3 +191,15 @@ class ComputeHost(Host):
     def stop_vms(self):
         for name, vm in self.vms.iteritems():
             vm.stop()
+
+    def connect_iface_to_port(self, vm_name, iface, port_id):
+        if vm_name not in self.interfaces_for_host:
+            raise HostNotFoundException(vm_name)
+        if iface not in self.interfaces_for_host[vm_host]:
+            raise ObjectNotFoundException('interface ' + iface + ' not on host ' + vm_name)
+        return self.cli.cmd('mm-ctl --bind-port ' +
+                            port_id + ' ' +
+                            self.interfaces_for_host[vm_host][iface].name)
+
+    def disconnect_port(self, port_id):
+        return self.cli.cmd('mm-ctl --unbind-port ' + port_id)

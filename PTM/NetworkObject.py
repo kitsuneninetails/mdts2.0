@@ -13,13 +13,18 @@ __author__ = 'micucci'
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from common.CLI import LinuxCLI
+
 
 class NetworkObject(object):
     def __init__(self, name, cli):
         super(NetworkObject, self).__init__()
         self.name = name
+        """ :type: str """
         self.cli = cli
+        """ :type: LinuxCLI """
         self.create_state = False
+        """ :type: bool """
 
     def get_name(self):
         return self.name

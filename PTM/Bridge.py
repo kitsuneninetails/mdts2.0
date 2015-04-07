@@ -14,11 +14,20 @@ __author__ = 'micucci'
 # limitations under the License.
 
 from Interface import Interface
+from PhysicalTopologyConfig import BridgeDef
+from PhysicalTopologyConfig import IPDef
 
 
 class Bridge(Interface):
-    def __init__(self, name, near_host, options=list(), ip_list=list(), mac='default'):
-        super(Bridge, self).__init__(name, near_host, '', ip_list, mac)
+    def __init__(self, cfg):
+        """
+        :type cfg: BridgeDef
+        name, near_host, options=list(), ip_list=list(), mac='default'):
+        """
+
+        super(Bridge, self).__init__(name=cfg.name, near_host=cfg.host,
+                                     ip_list=cfg.ip_list, mac=cfg.mac)
+
         self.options = options
 
     def setup(self):

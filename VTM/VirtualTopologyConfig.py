@@ -16,7 +16,7 @@ __author__ = 'tomoe'
 import neutronclient.neutron.client
 
 
-class VirtualTopologyConfig():
+class VirtualTopologyConfig(object):
     def __init__(self,
                  client_api_impl=neutronclient.neutron.client.Client,
                  endpoint_url='http://localhost:9696',

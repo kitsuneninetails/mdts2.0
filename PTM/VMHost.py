@@ -25,3 +25,10 @@ class VMHost(Host):
 
     def stop(self):
         pass
+
+    def plugin_iface(self, iface, port_id):
+        self.root_host.connect_iface_to_port(self.name, iface, port_id)
+
+    def unplug_iface(self, port_id):
+        self.root_host.disconnect_port(port_id)
+

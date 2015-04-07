@@ -61,8 +61,7 @@ class VirtualInterface(Interface):
     def unlink_vlan(self, vlan_id):
         vlan_iface = self.far_iface_name + '.' + str(vlan_id)
         self.far_host.get_cli().cmd('ip link set dev ' + vlan_iface + ' down')
-        self.far_host.get_cli().cmd('ip link delete ' + self.far_iface_name +
-                           ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
+        self.far_host.get_cli().cmd('ip link del ' + vlan_iface)
 
     def get_far_host(self):
         return self.far_host

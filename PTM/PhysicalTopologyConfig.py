@@ -44,7 +44,7 @@ __author__ = 'micucci'
 #      'vlan_config'=VLANDefList, 'hosts'=HostList }
 
 
-class IPDef:
+class IPDef(object):
     def __init__(self, ip_address, subnet_mask):
         self.ip_address = ip_address
         """ :type: str"""
@@ -52,7 +52,7 @@ class IPDef:
         """ :type: str"""
 
 
-class BridgeLinkDef:
+class BridgeLinkDef(object):
     def __init__(self, host, name):
         self.host = host
         """ :type: str"""
@@ -60,7 +60,7 @@ class BridgeLinkDef:
         """ :type: str"""
 
 
-class BridgeDef:
+class BridgeDef(object):
     def __init__(self, name, host, ip_list, options):
         self.name = name
         """ :type: str"""
@@ -72,7 +72,7 @@ class BridgeDef:
         """ :type: str"""
 
 
-class InterfaceDef:
+class InterfaceDef(object):
     def __init__(self, name, bridge_link, ip_list, mac_address):
         self.name = name
         """ :type: str"""
@@ -84,7 +84,7 @@ class InterfaceDef:
         """ :type: str"""
 
 
-class HostDef:
+class HostDef(object):
     def __init__(self, name, interface_list, options):
         self.name = name
         """ :type: str"""
@@ -94,7 +94,7 @@ class HostDef:
         """ :type: str"""
 
 
-class VMDef:
+class VMDef(object):
     def __init__(self, hypervisor_host_name, vm_host):
         self.hypervisor_host_name = hypervisor_host_name
         """ :type: str"""
@@ -102,7 +102,7 @@ class VMDef:
         """ :type: HostDef"""
 
         
-class TargetInterfaceDef:
+class TargetInterfaceDef(object):
     def __init__(self, host, interface_name):
         self.host = host
         """ :type: str"""
@@ -110,7 +110,7 @@ class TargetInterfaceDef:
         """ :type: str"""
 
 
-class PeerInterfaceDef:
+class PeerInterfaceDef(object):
     def __init__(self, near_interface, target_interface):
         self.near_interface = near_interface
         """ :type: InterfaceDef"""
@@ -118,7 +118,7 @@ class PeerInterfaceDef:
         """ :type: TargetInterfaceDef"""
 
 
-class RouterDef:
+class RouterDef(object):
     def __init__(self, name, peer_interface_list):
         self.name = name
         """ :type: str"""
@@ -126,7 +126,7 @@ class RouterDef:
         """ :type: list[InterfaceDef]"""
 
 
-class VLANDef:
+class VLANDef(object):
     def __init__(self, vlan_id, host_list):
         self.vlan_id = vlan_id
         """ :type: str"""
@@ -134,7 +134,7 @@ class VLANDef:
         """ :type: list[HostDef]"""
 
 
-class PhysicalTopologyConfig:
+class PhysicalTopologyConfig(object):
     def __init__(self):
         self.bridge_config = []
         """ :type: list[BridgeDef]"""

@@ -19,7 +19,7 @@ from VTM.VirtualTopologyConfig import VirtualTopologyConfig
 from PTM.VMHost import VMHost
 from common.CLI import LinuxCLI
 
-class Host:
+class Host(object):
     """
     A class to wrap a VM from the Physical Topology Manager
     """
@@ -29,84 +29,45 @@ class Host:
         """ :type: VMHost"""
         self.vtc = vtc
         """ :type: VirtualTopologyConfig"""
-
+        self.open_ports_by_interface = {}
+        """ :type: dict[str, dict[str, Port]]"""
 
     def plugin_vm(self, iface, port):
-        """ Creates a pseudo VM based on netns for neutron port.
-            This involves the following steps:
-                1. create a netns with the same name as name
-                2. create a veth pair
-                3. stick vethB to the netns and configure (e.g. mac/ip adder)
-                4. (if Host is running inside netns)
-                      stick vethA to host's netns
-                5. bind interface to MidoNet with mm-ctl
-
-        :param name: name of VM: used for netns and net_device interface name
-        :param port: Neutron Port data
-        :param subnet: Neutron Subnet data
-        :param setup_ip: configure ip addr and gw if True
-        :returns VM instance
+        """ Links an interface on this VM to a virtual network port
+            * bind interface to MidoNet with mm-ctl
+        :type iface: str
+        :type port: Port
         """
 
-        if self._vms.get(name):
-            raise AssertionError('VM with the same name already exists')
-
         try:
-            # configure mac address
-            mac = port.get('port').get('mac_address')
-            vm.execute('ip link set eth0 address %(mac)s' % {'mac': mac})
-
-            # Now bind it to MidoNet
-            port_id = port['port']['id']
-            self._bind_port(port_id, name)
+            self.vm_host.plugin_iface(iface, port.port_id)
+            self.open_ports_by_interface[iface] = port
 
         except subprocess.CalledProcessError as e:
             print 'command output: ',   e.output
             raise
-        else:
-            return vm
 
-    def delete_vm(self, name, port):
-        """Deletes psedo VM
-
-        :param name: name of the VM to delete
+    def unplug_vm(self, port):
+        """ Unlinks a port on this VM from the virtual network
+        :param port: Port ID to unlink
         """
 
         try:
+            self.vm_host.unplug_iface(port)
+            self.open_ports_by_interface = {k: v for k, v in self.open_ports_by_interface if v != port}
 
-            # delete veth pair
-            cmdline = 'ip link del %s' % name
-            subprocess.check_output(cmdline.split(), stderr=subprocess.STDOUT)
-
-            # delete netns
-            cmdline = 'ip netns del %s' % name
-            subprocess.check_output(cmdline.split(), stderr=subprocess.STDOUT)
-
-            # unbind MidoNet port
-            port_id = port['port']['id']
-            self._unbind_port(port_id)
         except subprocess.CalledProcessError as e:
             print 'command output: ',   e.output
             raise
 
+    def send_arp_request(self, ip):
+        return self.vm_host.send_arp_request('eth0', ip)
 
-    def _bind_port(self, port_id, ifname):
+    def send_arp_reply(self, src_mac, target_mac, src_ip, target_ip):
+        return self.vm_host.send_arp_reply('eth0', src_mac, target_mac, src_ip, target_ip)
 
-        cmdline = ''
-        if self._netns:
-            cmdline += 'ip netns exec %s" % self._netns '
-        cmdline += 'mm-ctl --bind-port %(port_id)s %(ifname)s' % {
-            'port_id': port_id, 'ifname': ifname}
-        subprocess.check_output(cmdline.split(), stderr=subprocess.STDOUT)
-
-
-    def _unbind_port(self, port_id):
-        cmdline = ''
-        if self._netns:
-            cmdline += 'ip netns exec %s" % self._netns '
-        cmdline += 'mm-ctl --unbind-port %s' % port_id
-        subprocess.check_output(cmdline.split(), stderr=subprocess.STDOUT)
-
+    def clear_arp(self):
+        return self.vm_host.flush_arp()
 
     def execute(self, cmdline, timeout=None):
         """Executes cmdline inside VM
@@ -118,29 +79,19 @@ class Host:
         Returns:
             output as a bytestring
 
-
         Raises:
             subprocess.CalledProcessError: when the command exists with non-zero
                                            value, including timeout.
             OSError: when the executable is not found or some other error
                      invoking
         """
-
-        LOG.debug('VM: executing command: %s', cmdline)
-
-
-        cmdline = "ip netns exec %s %s" % (
-            self._name, ('timeout %d ' % timeout if timeout else "")  + cmdline)
-
         try:
-            result = subprocess.check_output(cmdline, shell=True)
-            LOG.debug('Result=%r', result)
+            result = self.vm_host.cli.cmd(cmdline, timeout=timeout, return_output=True)
         except subprocess.CalledProcessError as e:
             print 'command output: ',   e.output
             raise
 
         return result
-
 
     def expect(self, pcap_filter_string, timeout):
         """
@@ -174,34 +125,6 @@ class Host:
             retval = False
         LOG.debug('Returning %r', retval)
         return retval
-
-    def send_arp_request(self, target_ipv4):
-        cmdline = 'mz eth0 -t arp "request, targetip=%s"' % target_ipv4
-        LOG.debug("cmdline: %s" % cmdline)
-        return self.execute(cmdline)
-
-    def send_arp_reply(self, src_mac, target_mac, src_ipv4, target_ipv4):
-        arp_msg = '"' + "reply, smac=%s, tmac=%s, sip=%s, tip=%s" % \
-                        (src_mac, target_mac, src_ipv4, target_ipv4) + '"'
-        mz_cmd = ['mz', 'eth0', '-t', 'arp', arp_msg]
-        return self.execute(mz_cmd)
-
-    def clear_arp(self):
-        cmdline = 'ip neigh flush all'
-        LOG.debug('VM: flushing arp cache: ' + cmdline)
-        self.execute(cmdline)
-
-    def set_ifup(self):
-        return self.execute('ip link set eth0 up')
-
-    def set_ifdown(self):
-        return self.execute('ip link set eth0  down')
-
-    def set_ipv4_addr(self, ipv4_addr):
-        return self.execute('ip addr add %s dev eth0' % ipv4_addr)
-
-    def set_ipv4_gw(self, gw):
-        return self.execute('ip route add default via %s' % gw)
 
     def assert_pings_to(self, other, count=3):
         """

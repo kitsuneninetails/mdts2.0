@@ -13,10 +13,20 @@
 # limitations under the License.
 
 from NetworkObject import NetworkObject
+from PhysicalTopologyConfig import IPDef
 
 
 class Interface(NetworkObject):
     def __init__(self, name, near_host, linked_bridge='', ip_list=list(), mac='default'):
+        """
+        :param name: str
+        :param near_host: str
+        :param linked_bridge: str
+        :param ip_list: list[IPDef]
+        :param mac: str
+        :return:
+        """
+
         super(Interface, self).__init__(name, near_host.get_cli())
         self.near_host = near_host
         self.linked_bridge = linked_bridge

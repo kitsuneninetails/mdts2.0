@@ -16,17 +16,25 @@ __author__ = 'micucci'
 from common.Exceptions import *
 from NetworkObject import NetworkObject
 from VirtualInterface import VirtualInterface
+from Bridge import Bridge
+from PhysicalTopologyConfig import *
 
 
 class Host(NetworkObject):
     def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
         super(Host, self).__init__(name, cli)
         self.bridges = {}
+        """ :type: dict[str, Bridge]"""
         self.interfaces_for_host = {}
+        """ :type: dict[str, dict[str, VirtualInterface]]"""
         self.hwinterfaces = []
+        """ :type: dict[str, VirtualInterface]"""
         self.create_func = host_create_func
+        """ :type: lambda"""
         self.remove_func = host_remove_func
+        """ :type: lambda"""
         self.root_host = root_host
+        """ :type: Host"""
 
     def setup(self):
         self.create_func(self.name)
@@ -40,6 +48,11 @@ class Host(NetworkObject):
             iface.up()
 
         self.set_loopback()
+
+    def get_bridge(self, bridge):
+        raise ArgMismatchException('host ' + self.name +
+                                   ' is not a root server to add interface to bridge ' +
+                                   bridge)
 
     def setup_host_interfaces(self, host):
         for interface in self.get_interfaces_for_host(host.get_name()).values():
@@ -108,3 +121,41 @@ class Host(NetworkObject):
 
     def unmount_shared(self):
         pass
+
+    def connect_iface_to_port(self, vm_host, iface, port_id):
+        if vm_host not in self.interfaces_for_host:
+            raise HostNotFoundException(vm_host)
+
+        if iface not in self.interfaces_for_host[vm_host]:
+            raise ObjectNotFoundException('interface ' + iface + ' on host ' + vm_host)
+
+        near_iface = self.interfaces_for_host[vm_host][iface].name
+        self.cli.cmd('mm-ctl --bind-port ' + port_id + ' ' + near_iface)
+
+    def disconnect_port(self, port_id):
+        self.cli.cmd('mm-ctl --unbind-port ' + port_id)
+
+    def send_arp_request(self, iface, ip):
+        return self.cli.send_packet(iface,
+                                    pkt_type='arp',
+                                    pkt_cmd='request',
+                                    pkt_opt={'targetip': ip})
+
+    def send_arp_reply(self, iface, src_mac, target_mac, src_ip, target_ip):
+        return self.cli.send_packet(iface,
+                                    pkt_type='arp',
+                                    pkt_cmd='reply',
+                                    pkt_opt={'smac': src_mac,
+                                             'tmac': target_mac,
+                                             'sip': src_ip,
+                                             'tip': target_ip})
+
+    def send_packet(self, iface, type, target_ip, options=None, count=1):
+        return self.cli.send_packet(iface,
+                                    target_ip=target_ip,
+                                    pkt_type=type,
+                                    pkt_cmd='request',
+                                    pkt_opt=options)
+
+    def flush_arp(self):
+        self.cli('ip neighbour flush all')
