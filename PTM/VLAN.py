@@ -30,7 +30,7 @@ class VLAN(NetworkObject):
         for ifaces in self.interfaces:
             print ('    ' * (indent + 2)) + 'Host: ' + ifaces[0].get_host_name()
             print ('    ' * (indent + 3)) + ifaces[0].get_interface_name() + \
-                  ' on IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in ifaces[1])
+                  ' on IPs: ' + ', '.join(ip for ip in ifaces[1])
 
     def setup(self):
         for iface in self.interfaces:

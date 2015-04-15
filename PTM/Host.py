@@ -43,7 +43,7 @@ class Host(NetworkObject):
             bridge.setup()
             bridge.up()
 
-        for iface in self.hwinterfaces:
+        for iface in self.hwinterfaces.itervalues():
             iface.setup()
             iface.up()
 
@@ -62,14 +62,14 @@ class Host(NetworkObject):
                 br = self.root_host.get_bridge(interface.linked_bridge)
                 br.add_link_interface(interface.get_name())
                 if len(br.ip_list) is not 0:
-                    interface.add_peer_route(('0.0.0.0', '0'), br.ip_list[0])
+                    interface.add_peer_route(IPDef('0.0.0.0', '0'), br.ip_list[0])
 
     def cleanup(self):
-        for bridge in self.bridges:
+        for bridge in self.bridges.itervalues():
             bridge.down()
             bridge.cleanup()
 
-        for interface in self.hwinterfaces:
+        for interface in self.hwinterfaces.itervalues():
             interface.down()
             interface.cleanup()
 
@@ -80,8 +80,8 @@ class Host(NetworkObject):
             interface.down()
             interface.cleanup()
 
-    def set_loopback(self, ip=('127.0.0.1', '8')):
-        self.cli.cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev lo')
+    def set_loopback(self, ip=IPDef('127.0.0.1', '8')):
+        self.cli.cmd('ip addr add ' + ip + ' dev lo')
         self.cli.cmd('ip link set dev lo up')
 
     def add_hwinterface(self, name, far_iface_name, far_host, linked_bridge, ip_list, mac='default'):

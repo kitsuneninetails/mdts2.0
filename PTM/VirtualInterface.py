@@ -32,7 +32,7 @@ class VirtualInterface(Interface):
                            self.far_host.get_name() + ' name ' + self.far_iface_name)
         # add ips
         for ip in self.ip_list:
-            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.far_iface_name)
+            self.far_host.get_cli().cmd('ip addr add ' + ip + ' dev ' + self.far_iface_name)
 
     def up(self):
         # Set main iface up
@@ -45,10 +45,10 @@ class VirtualInterface(Interface):
         self.far_host.get_cli().cmd('ip link set dev ' + self.far_iface_name + ' down')
 
     def add_peer_route(self, route_ip, gw_ip):
-        self.far_host.get_cli().cmd('ip route add ' + route_ip[0] + '/' + route_ip[1] + ' via ' + gw_ip[0])
+        self.far_host.get_cli().cmd('ip route add ' + route_ip + ' via ' + gw_ip.ip_address)
 
     def del_peer_route(self, route_ip):
-        self.far_host.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
+        self.far_host.get_cli().cmd('ip route del ' + route_ip)
 
     def link_vlan(self, vlan_id, ip_list):
         vlan_iface = self.far_iface_name + '.' + str(vlan_id)
@@ -56,7 +56,7 @@ class VirtualInterface(Interface):
                            ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
         self.far_host.get_cli().cmd('ip link set dev ' + vlan_iface + ' up')
         for ip in ip_list:
-            self.far_host.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + vlan_iface)
+            self.far_host.get_cli().cmd('ip addr add ' + ip + ' dev ' + vlan_iface)
 
     def unlink_vlan(self, vlan_id):
         vlan_iface = self.far_iface_name + '.' + str(vlan_id)
@@ -75,4 +75,4 @@ class VirtualInterface(Interface):
     def print_config(self, indent=0):
         link = ' linked on bridge ' + self.linked_bridge + ', ' if self.linked_bridge != '' else ' '
         print ('    ' * indent) + self.name + link + 'peered as ' + self.far_host.get_name() + \
-              '/' + self.far_iface_name + ' with ips: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.ip_list)
+              '/' + self.far_iface_name + ' with ips: ' + ', '.join(ip for ip in self.ip_list)

@@ -18,7 +18,7 @@ import unittest
 # limitations under the License.
 
 
-from VTM.Host import Host
+from VTM.Guest import Guest
 from VTM.VirtualTopologyConfig import VirtualTopologyConfig
 from VTM.tests.VirtualTopologyConfigTest import MockClient
 from PTM.VMHost import VMHost
@@ -30,22 +30,19 @@ from VTM.Port import Port
 import logging
 import datetime
 
-class HostTest(unittest.TestCase):
+class GuestTest(unittest.TestCase):
 
     def test_host_plugin_vm(self):
         vtc = VirtualTopologyConfig(client_api_impl=MockClient)
         test_system = RootServer()
-        test_system.config_compute('cmp1', {'iface': 'eth0', 'ips': ['2.2.2.2', '32']})
-        test_system.config_vm('cmp1', 'vm1', [{'iface': 'eth0', 'ips': ['3.3.3.3', '32']}])
-        hv = test_system.get_host('cmp1')
-        """ :type: ComputeHost"""
-        vm = hv.get_vm('vm1')
-        """ :type: VMHost"""
+        hv = test_system.config_compute(HostDef('cmp1', [InterfaceDef(name='eth0', ip_list=[IPDef('2.2.2.2', '32')])]))
+        vm = test_system.config_vm(VMDef('cmp1', HostDef('vm1', [InterfaceDef(name='eth0',
+                                                                         ip_list=[IPDef('3.3.3.3', '32')])])))
 
         # Normally we get this from network, but just go with a mocked up port for this test
         port = Port("fe6707e3-9c99-4529-b059-aa669d1463bb")
 
-        virtual_host = Host(vtc, vm)
+        virtual_host = Guest(vtc, vm)
         virtual_host.plugin_vm('eth0', port)
         self.assertEquals(virtual_host.open_ports_by_interface['eth0'], port)
 
@@ -53,17 +50,14 @@ class HostTest(unittest.TestCase):
     def test_host_unplug_vm(self):
         vtc = VirtualTopologyConfig(client_api_impl=MockClient)
         test_system = RootServer()
-        test_system.config_compute('cmp1', {'iface': 'eth0', 'ips': ['2.2.2.2', '32']})
-        test_system.config_vm('cmp1', 'vm1', [{'iface': 'eth0', 'ips': ['3.3.3.3', '32']}])
-        hv = test_system.get_host('cmp1')
-        """ :type: ComputeHost"""
-        vm = hv.get_vm('vm1')
-        """ :type: VMHost"""
+        test_system.config_compute(HostDef('cmp1', [InterfaceDef(name='eth0', ip_list=[IPDef('2.2.2.2', '32')])]))
+        vm = test_system.config_vm(VMDef('cmp1', HostDef('vm1', [InterfaceDef(name='eth0',
+                                                                         ip_list=[IPDef('3.3.3.3', '32')])])))
 
         # Normally we get this from network, but just go with a mocked up port for this test
         port = Port("fe6707e3-9c99-4529-b059-aa669d1463bb")
 
-        virtual_host = Host(vtc, vm)
+        virtual_host = Guest(vtc, vm)
         virtual_host.plugin_vm('eth0', port)
 
         virtual_host.unplug_vm(port)

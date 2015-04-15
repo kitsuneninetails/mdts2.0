@@ -116,257 +116,219 @@ class RootServer(Host):
         rt = RootServer()
 
         for i in ptc.bridge_config:
-            rt.config_bridge(i])
+            rt.config_bridge(i)
 
         for i in ptc.zookeeper_config:
-            if len(i.interface_list) > 0:
-                iface = {'iface': i.interface_list[0].name,
-                         'bridge': i.interface_list[0].bridge_link.name
-                             if i.interface_list[0].bridge_link is not None else '',
-                         'ips': [(ip.ip_address, ip.subnet_mask) for ip in i.interface_list[0].ip_list],
-                         'mac': i.interface_list[0].mac_address}
-                rt.config_zookeeper(i.name, iface)
+            rt.config_zookeeper(i)
 
         for i in ptc.cassandra_config:
-            if len(i.interface_list) > 0:
-                iface = {'iface': i.interface_list[0].name,
-                         'bridge': i.interface_list[0].bridge_link.name
-                             if i.interface_list[0].bridge_link is not None else '',
-                         'ips': [(ip.ip_address, ip.subnet_mask) for ip in i.interface_list[0].ip_list],
-                         'mac': i.interface_list[0].mac_address}
-                rt.config_cassandra(i.name, iface, i.options)
+           rt.config_cassandra(i)
 
         for i in ptc.compute_config:
-            if len(i.interface_list) > 0:
-                iface = {'iface': i.interface_list[0].name,
-                         'bridge': i.interface_list[0].bridge_link.name
-                             if i.interface_list[0].bridge_link is not None else '',
-                         'ips': [(ip.ip_address, ip.subnet_mask) for ip in i.interface_list[0].ip_list],
-                         'mac': i.interface_list[0].mac_address}
-                rt.config_compute(i.name, iface)
+            rt.config_compute(i)
 
         for i in ptc.router_config:
-            if_list = [{'iface': j.near_interface.name,
-                        'bridge': j.near_interface.bridge_link.name
-                            if j.near_interface.bridge_link is not None else '',
-                        'ips': [(ip.ip_address, ip.subnet_mask) for ip in j.near_interface.ip_list],
-                        'mac': j.near_interface.mac_address,
-                        'target_host': j.target_interface.host,
-                        'target_iface': j.target_interface.interface_name} for j in i.peer_interface_list]
-
-            rt.config_router(i.name, if_list)
+            rt.config_router(i)
 
         for i in ptc.host_config:
-            iface_list = [{'iface': j.name,
-                           'bridge': j.bridge_link.name if j.bridge_link is not None else '',
-                           'ips': [(ip.ip_address, ip.subnet_mask) for ip in j.ip_list],
-                           'mac': j.mac_address} for j in i.interface_list if len(i.interface_list) > 0]
-            rt.config_generic_host(i.name, iface_list)
+            rt.config_generic_host(i)
 
         for i in ptc.vm_config:
-            hv_name = i.hypervisor_host_name
-            vm_host = i.vm_host
-
-            if_list = [{'iface': j.name,
-                        'bridge': j.bridge_link.name if j.bridge_link is not None else '',
-                        'ips': [(ip.ip_address, ip.subnet_mask) for ip in j.ip_list],
-                        'mac': j.mac_address} for j in vm_host.interface_list]
-
-            rt.config_vm(hv_name, vm_host.name, if_list)
+            rt.config_vm(i)
 
         for i in ptc.vlan_config:
-            vlan_if_list = [{'host': tif.name,
-                             'iface': tif.interface_list[0].name,
-                             'ips': [(ip.ip_address, ip.subnet_mask) for ip in tif.interface_list[0].ip_list]
-                            } for tif in i.host_list if len(tif.interface_list) > 0]
-            rt.config_vlan(i.vlan_id, vlan_if_list)
+            rt.config_vlan(i)
 
         return rt
 
     def config_bridge(self, cfg):
         """
-        :type name: str
         :type cfg: BridgeDef
+        :return: Bridge
         """
-
-        self.bridges[cfg.name] = Bridge(cfg)
-
-        b = self.add_bridge(cfg)
+        b = Bridge(cfg.name, cfg.host, cfg.options.split(' '), cfg.ip_list)
+        self.bridges[cfg.name] = b
+        return b
 
     def config_zookeeper(self, cfg):
         """
-        :type name: str
         :type cfg: HostDef
+        :return: ZookeeperHost
         """
 
-        if len(interface.ip_list) == 0:
+        if len(cfg.interface_list) == 0:
+            raise ArgMismatchException('zookeeper needs at least one interface')
+
+        if len(cfg.interface_list[0].ip_list) == 0:
             raise ArgMismatchException('zookeeper interface list needs at least one IP')
 
-        h = ZookeeperHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = {}
-        self.add_host(name, h)
+        h = ZookeeperHost(cfg.name, NetNSCLI(cfg.name), CREATENSCMD, REMOVENSCMD, self)
+        self.hosts[cfg.name] = h
+        self.interfaces_for_host[cfg.name] = {}
 
-        self.add_virt_interface('veth' + name,
-                                interface.name,
+        i = cfg.interface_list[0]
+        self.add_virt_interface('veth' + cfg.name,
+                                i.name,
                                 h,
-                                interface.bridge,
-                                interface.ip_list,
-                                interface.mac)
+                                i.bridge_link,
+                                i.ip_list,
+                                i.mac_address)
 
         self.zookeeper_hosts.append(h)
-        self.zookeeper_ips.append(interface.ip_list[0])
-        h.ip = interface.ip_list[0]
+        self.zookeeper_ips.append(i.ip_list[0])
+        h.ip = i.ip_list[0]
+        return h
 
-    def config_cassandra(self, name, interface, extra_data=list('')):
+    def config_cassandra(self, cfg):
         """
-        :type name: str
-        :type interface: InterfaceConfig
-        :type extra_data: list[str]
+        :type cfg: HostDef
+        :return: CassandraHost
         """
 
-        if len(interface.ip_list) == 0:
+        if len(cfg.interface_list) == 0:
+            raise ArgMismatchException('cassandra needs at least one interface')
+
+        if len(cfg.interface_list[0].ip_list) == 0:
             raise ArgMismatchException('cassandra interface list needs at least one IP')
 
-        if len(extra_data) == 0:
+        if cfg.options == '':
             raise ArgMismatchException('cassandra interface list needs init token')
 
-        h = CassandraHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = {}
-        self.add_host(name, h)
+        h = CassandraHost(cfg.name, NetNSCLI(cfg.name), CREATENSCMD, REMOVENSCMD, self)
+        self.hosts[cfg.name] = h
+        self.interfaces_for_host[cfg.name] = {}
 
-        h.init_token = extra_data[0]
+        h.init_token = cfg.options
 
-        self.add_virt_interface('veth' + name,
-                                interface.name,
+        i = cfg.interface_list[0]
+        self.add_virt_interface('veth' + cfg.name,
+                                i.name,
                                 h,
-                                interface.bridge,
-                                interface.ip_list,
-                                interface.mac)
+                                i.bridge_link,
+                                i.ip_list,
+                                i.mac_address)
 
         self.cassandra_hosts.append(h)
-        self.cassandra_ips.append(interface.ip_list[0])
-        h.ip = interface.ip_list[0]
+        self.cassandra_ips.append(i.ip_list[0])
+        h.ip = i.ip_list[0]
+        return h
 
-    def config_compute(self, name, interface):
+    def config_compute(self, cfg):
         """
-        :type name: str
-        :type interface: (name: str, bridge: str, ip_list: str, mac: str)
+        :type cfg: HostDef
+        :return: ComputeHost
         """
 
-        if len(interface.ip_list) == 0:
+        if len(cfg.interface_list) == 0:
+            raise ArgMismatchException('compute needs at least one interface')
+
+        if len(cfg.interface_list[0].ip_list) == 0:
             raise ArgMismatchException('compute interface list needs at least one IP')
 
-        # interface is a map: {iface, bridge, ips, mac}
-        h = ComputeHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = {}
-        self.add_host(name, h)
+        h = ComputeHost(cfg.name, NetNSCLI(cfg.name), CREATENSCMD, REMOVENSCMD, self)
+        self.hosts[cfg.name] = h
+        self.interfaces_for_host[cfg.name] = {}
 
         h.zookeeper_ips = self.zookeeper_ips
         h.cassandra_ips = self.cassandra_ips
 
-        self.add_virt_interface('veth' + name,
-                                interface.name,
+        i = cfg.interface_list[0]
+        self.add_virt_interface('veth' + cfg.name,
+                                i.name,
                                 h,
-                                interface.bridge,
-                                interface.ip_list,
-                                interface.mac)
+                                i.bridge_link,
+                                i.ip_list,
+                                i.mac_address)
 
         self.compute_hosts.append(h)
+        return h
 
-    def config_router(self, name, interfaces):
+    def config_router(self, cfg):
         """
-        :type name: str
-        :type interfaces: list[RouterInterfaceConfig]
+        :type cfg: RouterDef
+        :return: RouterHost
         """
 
-        # interfaces is a list of maps: {iface, target_iface, target_host, bridge, ips, mac}
-        h = RouterHost(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = {}
-        self.add_host(name, h)
+        if len(cfg.peer_interface_list) == 0:
+            raise ArgMismatchException('router needs at least one interface')
 
-        for iface in interfaces:
-            h.add_hwinterface(interface.name,
-                                    h,
-                                    interface.bridge,
-                                    interface.ip_list,
-                                    interface.mac)
-            h.add_hwinterface(iface['iface'],
-                              iface['target_iface'],
-                              self.get_host(iface['target_host']),
-                              iface['bridge'] if 'bridge' in iface else '',
-                              iface['ips'] if 'ips' in iface else [],
-                              iface['mac'] if 'mac' in iface else 'default')
+        if len(cfg.peer_interface_list[0].ip_list) == 0:
+            raise ArgMismatchException('router interface list needs at least one IP')
+
+        h = RouterHost(cfg.name, NetNSCLI(cfg.name), CREATENSCMD, REMOVENSCMD, self)
+        self.hosts[cfg.name] = h
+        self.interfaces_for_host[cfg.name] = {}
+
+        i = cfg.peer_interface_list[0]
+        for iface in cfg.peer_interface_list:
+            h.add_hwinterface(iface.name,
+                              h,
+                              iface.bridge_link,
+                              iface.ip_list,
+                              iface.mac_address)
 
         self.routers.append(h)
+        return h
 
-    def config_vm(self, hv_host_name, vm_name, interfaces):
+    def config_vm(self, cfg):
+        #hv_host_name, vm_name, interfaces):
         """
-        :type name: str
-        :type interface: InterfaceConfig
+        :type cfg: VMDef
+        :return: VMHost
         """
 
-        # interface is a map: {iface, bridge, ips, mac}
-        hv_host = self.get_host(hv_host_name) if hv_host_name != '' else self
+        hv_host = self.get_host(cfg.hypervisor_host_name) if cfg.hypervisor_host_name != '' else self
         """ :type: ComputeHost"""
 
         if not isinstance(hv_host, ComputeHost):
-            raise HostNotFoundException(hv_host_name)
+            raise HostNotFoundException(cfg.hypervisor_host_name)
 
-        v = hv_host.create_vm(vm_name)
+        v = hv_host.create_vm(cfg.vm_host.name)
 
-        for iface in interfaces:
-            self.add_virt_interface('veth' + name,
-                                    interface.name,
-                                    h,
-                                    interface.bridge,
-                                    interface.ip_list,
-                                    interface.mac)
-            hv_host.add_virt_interface('veth' + vm_name,
-                                       iface['iface'],
-                                       v,
-                                       iface['bridge'] if 'bridge' in iface else '',
-                                       iface['ips'] if 'ips' in iface else [],
-                                       iface['mac'] if 'mac' in iface else 'default')
+        for iface in cfg.vm_host.interface_list:
+            self.add_virt_interface('veth' + cfg.vm_host.name,
+                                    iface.name,
+                                    v,
+                                    iface.bridge_link,
+                                    iface.ip_list,
+                                    iface.mac_address)
+        return v
 
-    def config_vlan(self, vlan_id, vlan_if_list):
-        vlan = VLAN(vlan_id, self)
+    def config_vlan(self, cfg):
+        """
+        :type cfg: VLANDef
+        :return: VLAN
+        """
+        vlan = VLAN(cfg.vlan_id, self)
 
-        for iface in vlan_if_list:
-            vlan.add_interface(self.get_interfaces_for_host(iface['host'])[iface['iface']],
-                               iface['ips'])
+        for host in cfg.host_list:
+            for i in host.interface_list:
+                vlan.add_interface(self.get_interfaces_for_host(host.name)[i.name],
+                                   i.ip_list)
 
         self.vlans.append(vlan)
+        return vlan
 
-    def config_generic_host(self, name, interface_list):
+    def config_generic_host(self, cfg):
         """
-        :type name: str
-        :type interface: InterfaceConfig
+        :type cfg: HostDef
+        :return: Host
         """
 
         # interface is a list of maps: {iface, bridge, ips, mac}
-        h = Host(name, NetNSCLI(name), CREATENSCMD, REMOVENSCMD, self)
-        self.hosts[name] = host
-        self.interfaces_for_host[name] = {}
-        self.add_host(name, h)
-        for iface in interface_list:
-            self.add_virt_interface('veth' + name,
-                                    interface.name,
+        h = Host(cfg.name, NetNSCLI(cfg.name), CREATENSCMD, REMOVENSCMD, self)
+        self.hosts[cfg.name] = h
+        self.interfaces_for_host[cfg.name] = {}
+        for iface in cfg.interface_list:
+            self.add_virt_interface('veth' + cfg.name,
+                                    iface.name,
                                     h,
-                                    interface.bridge,
-                                    interface.ip_list,
-                                    interface.mac)
-            self.add_virt_interface('veth' + name,
-                                    iface['iface'],
-                                    h,
-                                    iface['bridge'] if 'bridge' in iface else '',
-                                    iface['ips'] if 'ips' in iface else [],
-                                    iface['mac'] if 'mac' in iface else 'default')
+                                    iface.bridge_link,
+                                    iface.ip_list,
+                                    iface.mac_address)
 
         self.generic_hosts.append(h)
+        return h
 
     def init(self):
         for i in self.zookeeper_hosts:
@@ -413,12 +375,12 @@ class RootServer(Host):
             self.setup_host_interfaces(h)
         for vlan in self.vlans:
             vlan.setup()
-        for iface in self.hwinterfaces:
+        for iface in self.hwinterfaces.itervalues():
             iface.setup()
             iface.up()
 
     def cleanup(self):
-        for iface in self.hwinterfaces:
+        for iface in self.hwinterfaces.itervalues():
             iface.down()
             iface.cleanup()
         for vlan in self.vlans:

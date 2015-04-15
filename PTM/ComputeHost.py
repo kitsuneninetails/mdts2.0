@@ -17,6 +17,7 @@ from Host import Host
 from VMHost import VMHost
 from common.CLI import NetNSCLI, CREATENSCMD, REMOVENSCMD
 from common.Exceptions import *
+from PhysicalTopologyConfig import IPDef
 
 
 class ComputeHost(Host):
@@ -33,8 +34,8 @@ class ComputeHost(Host):
     def print_config(self, indent=0):
         super(ComputeHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.zookeeper_ips)
-        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip for ip in self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip for ip in self.cassandra_ips)
         if len(self.vms) > 0:
             print ('    ' * (indent + 1)) + 'Hosted vms: '
             for vm in self.vms:
@@ -61,12 +62,12 @@ class ComputeHost(Host):
         mmconf = etc_dir + '/midolman.conf'
 
         if len(self.zookeeper_ips) is not 0:
-            z_ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
+            z_ip_str = ''.join([str(ip.ip_address) + ':2181,' for ip in self.zookeeper_ips])[:-1]
         else:
             z_ip_str = ''
 
         if len(self.cassandra_ips) is not 0:
-            c_ip_str = ''.join([str(ip[0]) + ',' for ip in self.cassandra_ips])[:-1]
+            c_ip_str = ''.join([str(ip.ip_address) + ',' for ip in self.cassandra_ips])[:-1]
         else:
             c_ip_str = ''
 

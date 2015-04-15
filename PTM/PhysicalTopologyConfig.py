@@ -45,93 +45,114 @@ __author__ = 'micucci'
 
 
 class IPDef(object):
-    def __init__(self, ip_address, subnet_mask):
+    def __init__(self, ip_address, subnet_mask='24'):
+        """
+        :type ip_address: str
+        :type subnet_mask: str
+        """
         self.ip_address = ip_address
-        """ :type: str"""
         self.subnet_mask = subnet_mask
-        """ :type: str"""
+    def __repr__(self):
+        return self.ip_address + "/" + self.subnet_mask
 
 
 class BridgeLinkDef(object):
-    def __init__(self, host, name):
+    def __init__(self, host='', name=''):
+        """
+        :type host: str
+        :type name: str
+        """
         self.host = host
-        """ :type: str"""
         self.name = name
-        """ :type: str"""
 
 
 class BridgeDef(object):
-    def __init__(self, name, host, ip_list, options):
+    def __init__(self, name, host='', ip_list=list(), options=''):
+        """
+        :type name: str
+        :type host: str
+        :type ip_list: list[IPDef]
+        :type options: str
+        """
         self.name = name
-        """ :type: str"""
         self.host = host
-        """ :type: str"""
         self.ip_list = ip_list
-        """ :type: list[IPDef]"""
         self.options = options
-        """ :type: str"""
-
 
 class InterfaceDef(object):
-    def __init__(self, name, bridge_link, ip_list, mac_address):
+    def __init__(self, name, bridge_link=None, ip_list=list(), mac_address='default'):
+        """
+        :type name: str
+        :type bridge_link: BridgeLinkDef
+        :type ip_list: list[IPDef]
+        :type mac_address: str
+        """
         self.name = name
-        """ :type: str"""
         self.ip_list = ip_list
-        """ :type: list[IPDef]"""
         self.bridge_link = bridge_link
-        """ :type: BridgeLinkDef"""
         self.mac_address = mac_address
-        """ :type: str"""
 
 
 class HostDef(object):
-    def __init__(self, name, interface_list, options):
+    def __init__(self, name, interface_list=list(), options=''):
+        """
+        :type name: str
+        :type interface_list: list[InterfaceDef]
+        :type options: str
+        """
         self.name = name
-        """ :type: str"""
         self.interface_list = interface_list
-        """ :type: list[InterfaceDef]"""
         self.options = options
-        """ :type: str"""
 
 
 class VMDef(object):
     def __init__(self, hypervisor_host_name, vm_host):
+        """
+        :type hypervisor_host_name: str
+        :type vm_host: HostDef
+        """
         self.hypervisor_host_name = hypervisor_host_name
-        """ :type: str"""
         self.vm_host = vm_host
-        """ :type: HostDef"""
 
         
 class TargetInterfaceDef(object):
     def __init__(self, host, interface_name):
+        """
+        :type host: str
+        :type interface_name: str
+        """
         self.host = host
-        """ :type: str"""
         self.interface_name = interface_name
-        """ :type: str"""
 
 
 class PeerInterfaceDef(object):
     def __init__(self, near_interface, target_interface):
+        """
+        :type target_interface: TargetInterfaceDef
+        :type near_near_interface: InterfaceDef
+        """
         self.near_interface = near_interface
-        """ :type: InterfaceDef"""
         self.target_interface = target_interface
-        """ :type: TargetInterfaceDef"""
 
 
 class RouterDef(object):
-    def __init__(self, name, peer_interface_list):
+    def __init__(self, name, peer_interface_list=list()):
+        """
+        :type name: str
+        :type peer_interface_list: list[PeerInterfaceDef]
+        """
         self.name = name
-        """ :type: str"""
         self.peer_interface_list = peer_interface_list
-        """ :type: list[InterfaceDef]"""
 
 
 class VLANDef(object):
-    def __init__(self, vlan_id, host_list):
+    def __init__(self, vlan_id, host_list=list()):
+        """
+        :type vlan_id: str
+        :type host_list: list[HostDef]
+        """
         self.vlan_id = vlan_id
-        """ :type: str"""
         self.host_list = host_list
-        """ :type: list[HostDef]"""
 
 
 class PhysicalTopologyConfig(object):

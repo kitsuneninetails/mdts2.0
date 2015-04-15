@@ -61,3 +61,8 @@ class ExitCleanException(MDTSException):
 class SocketException(MDTSException):
     def __init__(self, info):
         super(SocketException, self).__init__(info)
+
+
+class InvallidConfigurationException(MDTSException):
+    def __init__(self, config, reason):
+        super(InvallidConfigurationException, self).__init__(reason + " in config <" + str(config) + ">")

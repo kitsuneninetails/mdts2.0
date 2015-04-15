@@ -17,6 +17,7 @@ import time
 
 from Host import Host
 from common.Exceptions import *
+from PhysicalTopologyConfig import IPDef
 
 
 class CassandraHost(Host):
@@ -28,7 +29,7 @@ class CassandraHost(Host):
         self.num_id = str(CassandraHost.global_id)
         CassandraHost.global_id += 1
         self.init_token = ''
-        self.ip = ()
+        self.ip = IPDef('', '')
         
     def print_config(self, indent=0):
         super(CassandraHost, self).print_config(indent)
@@ -39,7 +40,7 @@ class CassandraHost(Host):
 
     def prepare_files(self):
         if len(self.cassandra_ips) is not 0:
-            seed_str = ''.join([str(ip[0]) + ',' for ip in self.cassandra_ips])[:-1]
+            seed_str = ''.join([str(ip.ip_address) + ',' for ip in self.cassandra_ips])[:-1]
         else:
             seed_str = ''
 
@@ -57,8 +58,8 @@ class CassandraHost(Host):
                                   "s/^cluster_name:.*$/cluster_name: 'midonet'/",
                                   's/^initial_token:.*$/initial_token: ' + self.init_token + '/',
                                   "/^seed_provider:/,/^$/ s/seeds:.*$/seeds: '" + seed_str + "'/",
-                                  's/^listen_address:.*$/listen_address: ' + self.ip[0] + '/',
-                                  's/^rpc_address:.*$/rpc_address: ' + self.ip[0] + '/')
+                                  's/^listen_address:.*$/listen_address: ' + self.ip.ip_address + '/',
+                                  's/^rpc_address:.*$/rpc_address: ' + self.ip.ip_address + '/')
 
         self.cli.rm(var_lib_dir)
         self.cli.mkdir(var_lib_dir)
@@ -82,7 +83,7 @@ class CassandraHost(Host):
         max_retries = 10
         connected = False
         while not connected:
-            if self.cli.oscmd('nodetool -h ' + self.ip[0] + ' status') == 0:
+            if self.cli.oscmd('nodetool -h ' + self.ip.ip_address + ' status') == 0:
                 connected = True
             else:
                 retries += 1

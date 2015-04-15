@@ -19,21 +19,23 @@ from PhysicalTopologyConfig import IPDef
 
 
 class Bridge(Interface):
-    def __init__(self, cfg):
+    def __init__(self, name, near_host, options=list(), ip_list=list(), mac='default'):
         """
-        :type cfg: BridgeDef
-        name, near_host, options=list(), ip_list=list(), mac='default'):
+        :type name: str
+        :type near_host: str
+        :type options: list[str]
+        :type ip_list: list[IPDef]
+        :type mac: str
         """
-
-        super(Bridge, self).__init__(name=cfg.name, near_host=cfg.host,
-                                     ip_list=cfg.ip_list, mac=cfg.mac)
+        super(Bridge, self).__init__(name, near_host,
+                                     ip_list, mac)
 
         self.options = options
 
     def setup(self):
         self.cli.cmd('brctl addbr ' + self.get_name())
         for ip in self.ip_list:
-            self.cli.cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.get_name())
+            self.cli.cmd('ip addr add ' + ip + ' dev ' + self.get_name())
 
     def cleanup(self):
         self.cli.cmd('brctl delbr ' + self.get_name())

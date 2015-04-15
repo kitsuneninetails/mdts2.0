@@ -28,12 +28,12 @@ class NetworkHost(Host):
     def prepare_files(self):
 
         if len(self.zookeeper_ips) is not 0:
-            ip_str = ''.join([str(ip[0]) + ':2181,' for ip in self.zookeeper_ips])[:-1]
+            ip_str = ''.join([str(ip.ip_address) + ':2181,' for ip in self.zookeeper_ips])[:-1]
         else:
             ip_str = ''
 
         self.cli.regex_file('/usr/share/midonet-api/WEB-INF/web.xml', 
-                            's/\(127.0.0.1:2181\|' + str(self.zookeeper_ips[0][0]) +
+                            's/\(127.0.0.1:2181\|' + str(self.zookeeper_ips[0].ip_address) +
                             ':2181[^<]*\)/' + ip_str + '/')
 
         if self.cli.grep_file('/usr/share/midonet-api/WEB-INF/web.xml', 'zookeeper-curator_enabled'):

@@ -18,24 +18,27 @@ import socket
 
 from common.Exceptions import *
 from Host import Host
-
+from PhysicalTopologyConfig import HostDef, IPDef
 
 class ZookeeperHost(Host):
     global_id = 1
 
     def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
-        super(ZookeeperHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
+        super(ZookeeperHost, self).__init__(name, cli,
+                                            host_create_func,
+                                            host_remove_func,
+                                            root_host)
         self.zookeeper_ips = []
         self.num_id = str(ZookeeperHost.global_id)
         ZookeeperHost.global_id += 1
-        self.ip = ()
+        self.ip = IPDef('', '')
         self.pid = 0
 
     def print_config(self, indent=0):
         super(ZookeeperHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip[0] + '/' + self.ip[1]
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip for ip in self.zookeeper_ips)
 
 
     def prepare_files(self):
@@ -46,7 +49,7 @@ class ZookeeperHost(Host):
 
             write_string = ''
             for j in range(0, len(self.zookeeper_ips)):
-                write_string += 'server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j][0]) + ':2888:3888\n'
+                write_string += 'server.' + str(j + 1) + '=' + str(self.zookeeper_ips[j].ip_address) + ':2888:3888\n'
 
             print 'write_str=' + write_string
             self.cli.write_to_file(etc_dir + '/conf/zoo.cfg', write_string, append=True)
@@ -80,7 +83,7 @@ class ZookeeperHost(Host):
         while not connected:
             ping_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             try:
-                ping_socket.connect((self.ip[0], 2181))
+                ping_socket.connect((self.ip.ip_address, 2181))
                 ping_socket.send('ruok')
                 if ping_socket.recv(16) == 'imok':
                     connected = True

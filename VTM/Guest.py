@@ -19,7 +19,7 @@ from VTM.VirtualTopologyConfig import VirtualTopologyConfig
 from PTM.VMHost import VMHost
 from common.CLI import LinuxCLI
 
-class Host(object):
+class Guest(object):
     """
     A class to wrap a VM from the Physical Topology Manager
     """

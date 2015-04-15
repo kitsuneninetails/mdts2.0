@@ -40,7 +40,7 @@ class Interface(NetworkObject):
             self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + self.mac)
 
         for ip in self.ip_list:
-            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + self.get_name())
+            self.get_cli().cmd('ip addr add ' + ip + ' dev ' + self.get_name())
 
     def cleanup(self):
         self.get_cli().cmd('ip link del dev ' + self.get_name())
@@ -56,23 +56,29 @@ class Interface(NetworkObject):
         self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + new_mac)
 
     def add_ip(self, new_ip):
+        """
+        :type new_ip: IPDef
+        """
         self.ip_list.append(new_ip)
-        self.get_cli().cmd('ip addr add ' + new_ip[0] + '/' + new_ip[1] + ' dev ' + self.get_name())
+        self.get_cli().cmd('ip addr add ' + new_ip + ' dev ' + self.get_name())
 
     def link_vlan(self, vlan_id, ip_list):
+        """
+        :type vlan_id: int
+        :type ip_list: list[IPDef]
+        """
         vlan_iface = self.name + '.' + str(vlan_id)
         self.get_cli().cmd('ip link add link ' + self.name +
                            ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
         self.get_cli().cmd('ip link set dev ' + vlan_iface + ' up')
         for ip in ip_list:
-            self.get_cli().cmd('ip addr add ' + ip[0] + '/' + ip[1] + ' dev ' + vlan_iface)
+            self.get_cli().cmd('ip addr add ' + ip + ' dev ' + vlan_iface)
 
     def add_route(self, route_ip, gw_ip):
-        self.get_cli().cmd('ip route add ' + route_ip[0] + '/' + route_ip[1] + ' via ' + gw_ip[0])
+        self.get_cli().cmd('ip route add ' + route_ip + ' via ' + gw_ip.ip_address)
 
     def del_route(self, route_ip):
-        self.get_cli().cmd('ip route del ' + route_ip[0] + '/' + route_ip[1])
-
+        self.get_cli().cmd('ip route del ' + route_ip)
 
     def get_host_name(self):
         return self.near_host.get_name()
