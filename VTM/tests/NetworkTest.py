@@ -21,6 +21,8 @@ class MockNetwork(Network):
 
 
 class MockClient(object):
+    gid=0
+
     def __init__(self, *args, **kwargs):
         self.subnet = {}
         self.options = {}
@@ -53,6 +55,15 @@ class MockClient(object):
         return None
 
     def create_port(self):
+        obj_map = {'name': 'test' + str(MockClient.gid),
+                   'id': str(MockClient.gid),
+                   'network_id': me.network_id,
+                   'admin_state_up': True,
+                   'status': me.status,
+                   'mac_address': me.mac_address,
+                   'fixed_ips': me.fixed_ips,
+                   'device_id': me.device_id,
+                   'device_owner': me.device_owner}
         port = None
         port_id = "fe6707e3-9c99-4529-b059-aa669d1463bb"
         self.ports[port_id] = port
@@ -85,7 +96,8 @@ class MyTestCase(unittest.TestCase):
         vm = test_system.config_vm(VMDef('cmp1', HostDef('vm1', [InterfaceDef(name='eth0',
                                                                          ip_list=[IPDef('3.3.3.3', '32')])])))
 
-        virtual_host = Guest(vtc, vm)
+        virtual_host = Guest(vtc,vtc)
+
         port = Port.from_json(vtc.get_client().create_port())
         """ :type: Port """
 

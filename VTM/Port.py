@@ -19,6 +19,19 @@ import json
 class Port(object):
     def __init__(self, id, name, network_id, admin_state_up, status,
                  mac_address, fixed_ips, device_id, device_owner, tenant_id):
+        """
+        :type id: str
+        :type name: str
+        :type network_id: str
+        :type admin_state_up: bool
+        :type status: str
+        :type mac_address: str
+        :type fixed_ips: list[str]
+        :type device_id: str
+        :type device_owner: str
+        :type tenant_id: str
+        :return:
+        """
         self.id = id
         self.name = name
         self.network_id = network_id

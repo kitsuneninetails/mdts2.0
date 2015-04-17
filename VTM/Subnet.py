@@ -64,7 +64,7 @@ class Subnet(object):
             raise InvallidConfigurationException(config, 'no subnet')
 
         sn_map = config['subnet']
-    
+
         return Subnet(id=sn_map['id'] if 'id' in sn_map else '',
                       name=sn_map['name'] if 'name' in sn_map else '',
                       network_id=sn_map['network_id'] if 'network_id' in sn_map else '',
