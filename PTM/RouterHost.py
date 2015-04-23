@@ -62,7 +62,7 @@ class RouterHost(Host):
     def print_config(self, indent=0):
         super(RouterHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Configured Interfaces:'
-        for j in self.hwinterfaces:
+        for j in self.hwinterfaces.itervalues():
             j.print_config(indent + 2)
 
     def start(self):

@@ -3,7 +3,7 @@ __author__ = 'micucci'
 import unittest
 
 
-class MyTestCase(unittest.TestCase):
+class BridgeTest(unittest.TestCase):
     def test_something(self):
         self.assertEqual(True, False)
 

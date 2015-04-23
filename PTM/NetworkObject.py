@@ -23,8 +23,6 @@ class NetworkObject(object):
         """ :type: str """
         self.cli = cli
         """ :type: LinuxCLI """
-        self.create_state = False
-        """ :type: bool """
 
     def get_name(self):
         return self.name

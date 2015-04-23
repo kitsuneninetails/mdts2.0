@@ -88,16 +88,11 @@ def make_host_def_from_config_object(cfg_obj):
     return PhysicalTopologyConfig.HostDef(name, interfaces, options)
 
 
-def make_target_interface_def_from_config_object(cfg_obj):
-    host = get_val_from_map(cfg_obj, 'host', True)
-    iface_name = get_val_from_map(cfg_obj, 'interface_name', True)
-    return PhysicalTopologyConfig.TargetInterfaceDef(host, iface_name)
-
-
 def make_peer_interface_def_from_config_object(cfg_obj):
-    near_if = get_translation_from_map(make_interface_def_from_config_object, cfg_obj, 'near_interface')
-    target = get_translation_from_map(make_target_interface_def_from_config_object, cfg_obj, 'target_interface')
-    return PhysicalTopologyConfig.PeerInterfaceDef(near_if, target)
+    near_if = get_val_from_map(cfg_obj, 'interface_name', required=True)
+    target_host = get_val_from_map(cfg_obj, 'target_host', required=True)
+    target_if = get_translation_from_map(make_interface_def_from_config_object, cfg_obj, 'target_interface')
+    return PhysicalTopologyConfig.PeerInterfaceDef(near_if, target_host, target_if)
 
 
 def make_router_def_from_config_object(cfg_obj):

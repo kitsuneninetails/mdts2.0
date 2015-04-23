@@ -21,6 +21,7 @@ from PTM.MapConfigReader import MapConfigReader
 from PTM.RootServer import RootServer
 from common.CLI import CONTROL_CMD_NAME
 from CBT.EnvSetup import EnvSetup
+import traceback
 
 def usage(exceptClass):
     print 'Usage: ' + CONTROL_CMD_NAME + ' {boot|init|start|stop|shutdown|config} [options]'
@@ -68,13 +69,17 @@ except ExitCleanException:
 except ArgMismatchException as a:
     print 'Argument mismatch: ' + str(a)
     usage(None)
+    traceback.print_tb(sys.exc_traceback)
     exit(2)
 except ObjectNotFoundException as e:
     print 'Object not found: ' + str(e)
+    traceback.print_tb(sys.exc_traceback)
     exit(2)
 except SubprocessFailedException as e:
     print 'Subprocess failed to execute: ' + str(e)
+    traceback.print_tb(sys.exc_traceback)
     exit(2)
 except MDTSException as e:
     print 'Unknown exception: ' + str(e)
+    traceback.print_tb(sys.exc_traceback)
     exit(2)

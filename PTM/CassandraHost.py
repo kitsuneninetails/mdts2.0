@@ -18,16 +18,20 @@ import time
 from Host import Host
 from common.Exceptions import *
 from PhysicalTopologyConfig import IPDef
-
+from common.CLI import *
 
 class CassandraHost(Host):
     global_id = 1
 
     def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
+        """
+        :type name: str
+        :type cli: LinuxCLI
+        :type root_host: RootServer
+        """
         super(CassandraHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.cassandra_ips = []
-        self.num_id = str(CassandraHost.global_id)
-        CassandraHost.global_id += 1
+        self.num_id = str(len(root_host.cassandra_hosts) + 1)
         self.init_token = ''
         self.ip = IPDef('', '')
         
@@ -35,8 +39,8 @@ class CassandraHost(Host):
         super(CassandraHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
         print ('    ' * (indent + 1)) + 'Init-token: ' + self.init_token
-        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip[0] + '/' + self.ip[1]
-        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(str(ip) for ip in self.cassandra_ips)
 
     def prepare_files(self):
         if len(self.cassandra_ips) is not 0:
@@ -83,7 +87,7 @@ class CassandraHost(Host):
         max_retries = 10
         connected = False
         while not connected:
-            if self.cli.oscmd('nodetool -h ' + self.ip.ip_address + ' status') == 0:
+            if self.cli.oscmd('nodetool -h ' + str(self.ip.ip_address) + ' status') == 0:
                 connected = True
             else:
                 retries += 1

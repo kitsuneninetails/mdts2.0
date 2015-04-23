@@ -27,7 +27,7 @@ class Host(NetworkObject):
         """ :type: dict[str, Bridge]"""
         self.interfaces_for_host = {}
         """ :type: dict[str, dict[str, VirtualInterface]]"""
-        self.hwinterfaces = []
+        self.hwinterfaces = {}
         """ :type: dict[str, VirtualInterface]"""
         self.create_func = host_create_func
         """ :type: lambda"""
@@ -49,16 +49,16 @@ class Host(NetworkObject):
 
         self.set_loopback()
 
-    def get_bridge(self, bridge):
-        raise ArgMismatchException('host ' + self.name +
-                                   ' is not a root server to add interface to bridge ' +
-                                   bridge)
+    def get_bridge(self, name):
+        if name not in self.bridges:
+            return None
+        return self.bridges[name]
 
     def setup_host_interfaces(self, host):
         for interface in self.get_interfaces_for_host(host.get_name()).values():
             interface.setup()
             interface.up()
-            if interface.linked_bridge != '':
+            if interface.linked_bridge is not None:
                 br = self.root_host.get_bridge(interface.linked_bridge)
                 br.add_link_interface(interface.get_name())
                 if len(br.ip_list) is not 0:
@@ -81,16 +81,46 @@ class Host(NetworkObject):
             interface.cleanup()
 
     def set_loopback(self, ip=IPDef('127.0.0.1', '8')):
-        self.cli.cmd('ip addr add ' + ip + ' dev lo')
+        self.cli.cmd('ip addr add ' + str(ip) + ' dev lo')
         self.cli.cmd('ip link set dev lo up')
 
-    def add_hwinterface(self, name, far_iface_name, far_host, linked_bridge, ip_list, mac='default'):
-        new_if = VirtualInterface(name, self, far_iface_name, far_host, linked_bridge, ip_list, mac, '.p')
-        self.hwinterfaces.append(new_if)
+    def add_hwinterface(self, far_host, far_iface_name, linked_bridge, ip_list, mac='default'):
+        """
+        Add an interface to this host that tunnels to a far host, but is started and
+        stopped normally when this host is started and stopped.
+        :type far_host: Host
+        :type far_iface_name: str
+        :type linked_bridge: Bridge
+        :type ip_list: list[IPDef]
+        :type mac: str
+        :return: VirtualInterface
+        """
+        if far_host is None:
+            raise ArgMismatchException('Adding a virtual interface requires a far_host to tunnel to')
+        if_name = 'v' + far_host.name + far_iface_name
+        new_if = VirtualInterface(if_name, self, far_host, far_iface_name, linked_bridge, ip_list, mac, '.p')
+
+        self.hwinterfaces[if_name] = new_if
         return new_if
 
-    def add_virt_interface(self, name, far_iface_name, far_host, linked_bridge, ip_list, mac='default'):
-        new_if = VirtualInterface(name, self, far_iface_name, far_host, linked_bridge, ip_list, mac, '.p')
+    def add_virt_interface(self, far_host, far_iface_name, linked_bridge, ip_list, mac='default'):
+        """
+        Add an interface to this host that tunnels to a far host and is started/stopped
+        via separate function calls, NOT when this host is started/stopped.
+
+        :type far_host: Host
+        :type far_iface_name: str
+        :type linked_bridge: Bridge
+        :type ip_list: list[IPDef]
+        :type mac: str
+        :return: VirtualInterface
+        """
+        if far_host is None:
+            raise ArgMismatchException('Adding a virtual interface requires a far_host to tunnel to')
+
+        if_name = 'v' + far_host.name + far_iface_name
+
+        new_if = VirtualInterface(if_name, self, far_host, far_iface_name, linked_bridge, ip_list, mac, '.p')
         if far_host.get_name() not in self.interfaces_for_host:
             self.interfaces_for_host[far_host.get_name()] = {}
         self.interfaces_for_host[far_host.get_name()][far_iface_name] = new_if
@@ -158,4 +188,8 @@ class Host(NetworkObject):
                                     pkt_opt=options)
 
     def flush_arp(self):
-        self.cli('ip neighbour flush all')
+        self.cli.cmd('ip neighbour flush all')
+
+    def wait_for_packet(self, iface, type, target_ip, options, count=1, timeout=0):
+        return self.cli.sniff_packet(iface,
+                                     target)

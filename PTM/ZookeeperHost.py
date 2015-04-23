@@ -29,16 +29,15 @@ class ZookeeperHost(Host):
                                             host_remove_func,
                                             root_host)
         self.zookeeper_ips = []
-        self.num_id = str(ZookeeperHost.global_id)
-        ZookeeperHost.global_id += 1
+        self.num_id = str(len(root_host.zookeeper_hosts) + 1)
         self.ip = IPDef('', '')
         self.pid = 0
 
     def print_config(self, indent=0):
         super(ZookeeperHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Self-IP: ' + self.ip
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip for ip in self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Self-IP: ' + str(self.ip)
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(str(ip) for ip in self.zookeeper_ips)
 
 
     def prepare_files(self):

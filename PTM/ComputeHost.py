@@ -26,16 +26,15 @@ class ComputeHost(Host):
     def __init__(self, name, cli, host_create_func, host_remove_func, root_host):
         super(ComputeHost, self).__init__(name, cli, host_create_func, host_remove_func, root_host)
         self.vms = {}
-        self.num_id = str(ComputeHost.global_id)
-        ComputeHost.global_id += 1
+        self.num_id = str(len(root_host.compute_hosts) + 1)
         self.zookeeper_ips = []
         self.cassandra_ips = []
 
     def print_config(self, indent=0):
         super(ComputeHost, self).print_config(indent)
         print ('    ' * (indent + 1)) + 'Num-id: ' + self.num_id
-        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(ip for ip in self.zookeeper_ips)
-        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(ip for ip in self.cassandra_ips)
+        print ('    ' * (indent + 1)) + 'Zookeeper-IPs: ' + ', '.join(str(ip) for ip in self.zookeeper_ips)
+        print ('    ' * (indent + 1)) + 'Cassandra-IPs: ' + ', '.join(str(ip) for ip in self.cassandra_ips)
         if len(self.vms) > 0:
             print ('    ' * (indent + 1)) + 'Hosted vms: '
             for vm in self.vms:

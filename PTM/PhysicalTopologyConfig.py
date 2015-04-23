@@ -29,10 +29,7 @@ __author__ = 'micucci'
 # 'compute_list' = ComputeDefList = HostDefList
 # 'vm' = VMDef = ( hypervisor_host, HostDef )
 # 'vm_list' = VMDefList = [ VMDef1, ..., VMDefN ]
-# 'target_interface' = TargetInterfaceDef := ( host, interface_name )
-# 'target_interface_list' = TargetInterfaceDefList := [ TargetInterfaceDef1, ..., TargetInterfaceDefN ]
-# 'near_interface' = NearInterfaceDef := InterfaceDef
-# 'peer_interface' = PeerInterfaceDef := ( NearInterfaceDef, TargetInterfaceDef )
+# 'peer_interface' = PeerInterfaceDef := ( near_interface_name, target_host, InterfaceDef )
 # 'peer_interface_list' = PeerInterfaceDefList := [ PeerInterfaceDef1, ..., PeerInterfaceDefN ]
 # 'router' = RouterDef := ( name, PeerInterfaceDefList )
 # 'router_list' = RouterDefList := [ RouterDef1, ..,, RouterDefN ]
@@ -114,24 +111,16 @@ class VMDef(object):
         self.hypervisor_host_name = hypervisor_host_name
         self.vm_host = vm_host
 
-        
-class TargetInterfaceDef(object):
-    def __init__(self, host, interface_name):
-        """
-        :type host: str
-        :type interface_name: str
-        """
-        self.host = host
-        self.interface_name = interface_name
-
 
 class PeerInterfaceDef(object):
-    def __init__(self, near_interface, target_interface):
+    def __init__(self, interface_name, target_host, target_interface):
         """
-        :type target_interface: TargetInterfaceDef
-        :type near_near_interface: InterfaceDef
+        :type interface_name: str
+        :type target_host: str
+        :type target_interface: InterfaceDef
         """
-        self.near_interface = near_interface
+        self.interface_name = interface_name
+        self.target_host = target_host
         self.target_interface = target_interface
 
 

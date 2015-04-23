@@ -159,19 +159,19 @@ class LinuxCLI(object):
     def cmd_unshare_control(self, cmd_line):
         return self.cmd_unshare('PYTHONPATH=.. python -u ' + CONTROL_CMD_NAME + ' ' + cmd_line)
 
-    def send_packet(self, interface, pkt_type=None, src_ip=None, target_ip=None, src_mac=None,
-                    target_mac=None, pkt_cmd=None, pkt_opt=None, count=None,
-                    delay = None, bytes=None, timeout=None):
+    def send_packet(self, interface, packet_type=None, source_ip=None, target_ip=None,  source_mac=None,
+                    target_mac=None, packet_cmd=None, packet_options=None, count=None,
+                    delay=None, use_bytes=None, timeout=None):
         """:type pkt_opt: dict[str, str]"""
 
         count_str = '-c %d' % count if count is not None else ''
-        src_mac_str = '-a %s' % src_mac if src_mac is not None else ''
+        src_mac_str = '-a %s' % source_mac if source_mac is not None else ''
         target_mac_str = '-b %s' % target_mac if target_mac is not None else ''
         arg_str = ' '.join((src_mac_str, target_mac_str, count_str))
 
         # Bytes-only mode, only -a, -b, -c, and -p are supported by mz
-        if pkt_type is None:
-            if bytes is None:
+        if packet_type is None:
+            if use_bytes is None:
                 raise ArgMismatchException('no pkt_type requires "bytes" parameter to send raw bytes')
             full_cmd_str = 'mz %(iface)s %(arglist)s "%(bytes)s"' % \
                            {'iface': interface,
@@ -180,17 +180,18 @@ class LinuxCLI(object):
             return self.cmd(full_cmd_str, return_output=True, timeout=timeout)
 
         # Packet-builder mode, supports various opts (supported opts depend on packet type)
-        pkt_type_str = '-t %s' % pkt_type if pkt_type is not None else ''
-        src_ip_str = '-A %s' % src_ip if src_ip is not None else ''
+        pkt_type_str = '-t %s' % packet_type if packet_type is not None else ''
+        src_ip_str = '-A %s' % source_ip if source_ip is not None else ''
         target_ip_str = '-B %s' % target_ip if target_ip is not None else ''
         delay_str = '-d %d' % delay if delay is not None else ''
         pkt_bldr_arg_str = ' '.join((src_ip_str, target_ip_str, src_mac_str, target_mac_str, count_str, delay_str))
-        opt_list = ', '.join('%s=%s' % (k, v) for k, v in pkt_opt.iteritems()) if pkt_opt is not None else ''
+        opt_list = ', '.join('%s=%s' % (k, v)
+                             for k, v in packet_options.iteritems()) if packet_options is not None else ''
 
-        if pkt_type is 'arp' or pkt_type is 'icmp':
-            if pkt_cmd is None:
+        if packet_type is 'arp' or packet_type is 'icmp':
+            if packet_cmd is None:
                 raise ArgMismatchException('arp and icmp packets need a command or type')
-            cmd_str = pkt_cmd + (', ' + opt_list if opt_list != '' else '')
+            cmd_str = packet_cmd + (', ' + opt_list if opt_list != '' else '')
         else:
             cmd_str = opt_list
 
@@ -202,6 +203,7 @@ class LinuxCLI(object):
                             'cmd': cmd_str}
 
         return self.cmd(full_cmd_str, return_output=True, timeout=timeout)
+
 
 
 class NetNSCLI(LinuxCLI):

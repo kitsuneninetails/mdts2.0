@@ -22,20 +22,23 @@ class Bridge(Interface):
     def __init__(self, name, near_host, options=list(), ip_list=list(), mac='default'):
         """
         :type name: str
-        :type near_host: str
+        :type near_host: Host
         :type options: list[str]
         :type ip_list: list[IPDef]
         :type mac: str
         """
-        super(Bridge, self).__init__(name, near_host,
-                                     ip_list, mac)
+        super(Bridge, self).__init__(name=name,
+                                     near_host=near_host,
+                                     linked_bridge=None,
+                                     ip_list=ip_list,
+                                     mac=mac)
 
         self.options = options
 
     def setup(self):
         self.cli.cmd('brctl addbr ' + self.get_name())
         for ip in self.ip_list:
-            self.cli.cmd('ip addr add ' + ip + ' dev ' + self.get_name())
+            self.cli.cmd('ip addr add ' + str(ip) + ' dev ' + self.get_name())
 
     def cleanup(self):
         self.cli.cmd('brctl delbr ' + self.get_name())
@@ -54,4 +57,3 @@ class Bridge(Interface):
 
     def del_link_interface(self, iface):
         self.cli.cmd('brctl delif ' + self.get_name() + ' ' + iface)
-

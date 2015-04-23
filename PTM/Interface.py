@@ -17,50 +17,49 @@ from PhysicalTopologyConfig import IPDef
 
 
 class Interface(NetworkObject):
-    def __init__(self, name, near_host, linked_bridge='', ip_list=list(), mac='default'):
+    def __init__(self, name, near_host, linked_bridge=None, ip_list=list(), mac='default'):
         """
-        :param name: str
-        :param near_host: str
-        :param linked_bridge: str
-        :param ip_list: list[IPDef]
-        :param mac: str
-        :return:
+        :type name: str
+        :type near_host: Host
+        :type linked_bridge: Bridge
+        :type ip_list: list[IPDef]
+        :type mac: str
         """
 
-        super(Interface, self).__init__(name, near_host.get_cli())
+        super(Interface, self).__init__(name, near_host.cli)
         self.near_host = near_host
         self.linked_bridge = linked_bridge
         self.ip_list = ip_list
         self.mac = mac
 
     def setup(self):
-        self.get_cli().cmd('ip link add dev ' + self.get_name())
+        self.cli.cmd('ip link add dev ' + self.get_name())
 
         if self.mac != 'default':
-            self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + self.mac)
+            self.cli.cmd('ip link set dev ' + self.get_name() + ' address ' + self.mac)
 
         for ip in self.ip_list:
-            self.get_cli().cmd('ip addr add ' + ip + ' dev ' + self.get_name())
+            self.cli.cmd('ip addr add ' + str(ip) + ' dev ' + self.get_name())
 
     def cleanup(self):
-        self.get_cli().cmd('ip link del dev ' + self.get_name())
+        self.cli.cmd('ip link del dev ' + self.get_name())
 
     def up(self):
-        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' up')
+        self.cli.cmd('ip link set dev ' + self.get_name() + ' up')
 
     def down(self):
-        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' down')
+        self.cli.cmd('ip link set dev ' + self.get_name() + ' down')
 
     def change_mac(self, new_mac):
         self.mac = new_mac
-        self.get_cli().cmd('ip link set dev ' + self.get_name() + ' address ' + new_mac)
+        self.cli.cmd('ip link set dev ' + self.get_name() + ' address ' + new_mac)
 
     def add_ip(self, new_ip):
         """
         :type new_ip: IPDef
         """
         self.ip_list.append(new_ip)
-        self.get_cli().cmd('ip addr add ' + new_ip + ' dev ' + self.get_name())
+        self.cli.cmd('ip addr add ' + str(new_ip) + ' dev ' + self.get_name())
 
     def link_vlan(self, vlan_id, ip_list):
         """
@@ -68,17 +67,17 @@ class Interface(NetworkObject):
         :type ip_list: list[IPDef]
         """
         vlan_iface = self.name + '.' + str(vlan_id)
-        self.get_cli().cmd('ip link add link ' + self.name +
+        self.cli.cmd('ip link add link ' + self.name +
                            ' name ' + vlan_iface + ' type vlan id ' + str(vlan_id))
-        self.get_cli().cmd('ip link set dev ' + vlan_iface + ' up')
+        self.cli.cmd('ip link set dev ' + vlan_iface + ' up')
         for ip in ip_list:
-            self.get_cli().cmd('ip addr add ' + ip + ' dev ' + vlan_iface)
+            self.cli.cmd('ip addr add ' + str(ip) + ' dev ' + vlan_iface)
 
     def add_route(self, route_ip, gw_ip):
-        self.get_cli().cmd('ip route add ' + route_ip + ' via ' + gw_ip.ip_address)
+        self.cli.cmd('ip route add ' + str(route_ip) + ' via ' + gw_ip.ip_address)
 
     def del_route(self, route_ip):
-        self.get_cli().cmd('ip route del ' + route_ip)
+        self.cli.cmd('ip route del ' + str(route_ip))
 
     def get_host_name(self):
         return self.near_host.get_name()
@@ -90,5 +89,5 @@ class Interface(NetworkObject):
         return self.near_host
 
     def print_config(self, indent=0):
-        link = ' linked on bridge: ' + self.linked_bridge if self.linked_bridge != '' else ''
-        print ('    ' * indent) + self.name + ' with ips: ' + ', '.join(ip[0] + '/' + ip[1] for ip in self.ip_list)
+        link = ' linked on bridge: ' + self.linked_bridge.name if self.linked_bridge is not None else ''
+        print ('    ' * indent) + self.name + ' with ips: ' + ', '.join(str(ip) for ip in self.ip_list)

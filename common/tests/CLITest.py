@@ -55,6 +55,35 @@ class CLITest(unittest.TestCase):
         self.assertTrue('-B' not in out)
         self.assertTrue('ip' not in out)
 
+    def test_send_packet_real(self):
+            cli = LinuxCLI(debug=True, print_cmd=True)
+        out = cli.send_packet('eth0', pkt_type='arp',
+                              src_ip='1.1.1.1', target_ip='2.2.2.2',
+                              pkt_cmd='request', pkt_opt={'sip': '1.1.1.1'})
+        self.assertTrue('mz eth0' in out)
+        self.assertTrue('-t arp "request, sip=1.1.1.1"' in out)
+        self.assertTrue('-A 1.1.1.1' in out)
+        self.assertTrue('-B 2.2.2.2' in out)
+        self.assertTrue('-a' not in out)
+        self.assertTrue('-b' not in out)
+        self.assertTrue('icmp' not in out)
+        self.assertTrue('targetip' not in out)
+
+    def test_send_packet_and_receive_packet(self):
+        cli = LinuxCLI(debug=True, print_cmd=True)
+        out = cli.send_packet('eth0', pkt_type='arp',
+                              src_ip='1.1.1.1', target_ip='2.2.2.2',
+                              pkt_cmd='request', pkt_opt={'sip': '1.1.1.1'})
+        self.assertTrue('mz eth0' in out)
+        self.assertTrue('-t arp "request, sip=1.1.1.1"' in out)
+        self.assertTrue('-A 1.1.1.1' in out)
+        self.assertTrue('-B 2.2.2.2' in out)
+        self.assertTrue('-a' not in out)
+        self.assertTrue('-b' not in out)
+        self.assertTrue('icmp' not in out)
+        self.assertTrue('targetip' not in out)
+
+
 
 try:
     suite = unittest.TestLoader().loadTestsFromTestCase(CLITest)

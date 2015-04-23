@@ -15,6 +15,9 @@ class HostTest(unittest.TestCase):
         h1.send_packet('eth0', 'icmp', '10.0.1.3')
         self.assertEqual(True, False)
 
+    def test_connect_iface_to_port(self):
+
+        self.assertEqual(True, False)
 
 if __name__ == '__main__':
     unittest.main()

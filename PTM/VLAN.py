@@ -14,12 +14,14 @@ __author__ = 'micucci'
 # limitations under the License.
 
 from NetworkObject import NetworkObject
+from VirtualInterface import VirtualInterface
 
 class VLAN(NetworkObject):
     def __init__(self, vlan_id, host):
         super(VLAN, self).__init__(vlan_id, host.get_cli())
         self.vlan_id = vlan_id
         self.interfaces = []
+        """ :type: list[(VirtualInterface, IPDef)]"""
 
     def add_interface(self, interface, ip_list):
         self.interfaces.append((interface, ip_list))
@@ -30,7 +32,7 @@ class VLAN(NetworkObject):
         for ifaces in self.interfaces:
             print ('    ' * (indent + 2)) + 'Host: ' + ifaces[0].get_host_name()
             print ('    ' * (indent + 3)) + ifaces[0].get_interface_name() + \
-                  ' on IPs: ' + ', '.join(ip for ip in ifaces[1])
+                  ' on IPs: ' + ', '.join(str(ip) for ip in ifaces[1])
 
     def setup(self):
         for iface in self.interfaces:
